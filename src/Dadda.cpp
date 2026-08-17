@@ -2,12 +2,13 @@
 
 #define UNUSED(x) (void)(x)
 
-vector<int> Dadda(map<int, int> Ins, int nIn1, int nIn2, string &file) // Get two integer numbers as input sizes and create the Wallace Tree PPA
+static vector<int> DaddaCore(map<int, int> Ins, int nIn1, int nIn2, string &file, const string &typeName, int truncateBits)
 {
     UNUSED(nIn1);
     UNUSED(nIn2);
+
     int inputNumber = 0;
-    vector<PartialProduct> partialIn; //to store all partial products
+    vector<PartialProduct> partialIn;
     for (auto i = 0u; i < Ins.size(); i++)
     {
         for (int j = 0; j < Ins[i]; j++)
@@ -18,46 +19,58 @@ vector<int> Dadda(map<int, int> Ins, int nIn1, int nIn2, string &file) // Get tw
         }
     }
 
-    vector<PartialProduct> partialOut; //the array of partial products for the output
-    vector<Component *> compList;      //the array of used components during implementation
+    if (truncateBits > 0)
+    {
+        vector<PartialProduct> truncatedIn;
+        for (auto &p : partialIn)
+        {
+            if (p.returnWeight() < truncateBits)
+            {
+                continue;
+            }
+            p.ChangeWeight(p.returnWeight() - truncateBits);
+            truncatedIn.push_back(p);
+        }
+        partialIn = truncatedIn;
+    }
 
-    map<int, vector<PartialProduct>> LevelizedPartials; //for hashing partial products based on the weights
+    vector<PartialProduct> partialOut;
+    vector<Component *> compList;
 
-    PartialProduct::LevelizePartials(LevelizedPartials, partialIn); //adding the first input to the levelized hash
+    map<int, vector<PartialProduct>> LevelizedPartials;
+    PartialProduct::LevelizePartials(LevelizedPartials, partialIn);
 
-    Component *comp; //a temp component to store a just created component
+    Component *comp;
 
-    //we should find the maximum hight of the partial product tree
-    unsigned int maxh = 0; //h will show the max height
+    unsigned int maxh = 0;
     for (auto i: LevelizedPartials)
     {
         if (i.second.size()>maxh)
             maxh = i.second.size();
     }
 
-    int d = 2;           //d parameter in dadda algorithm
-    vector<int> D = {d}; //a vector to store all possible d parameters
+    int d = 2;
+    vector<int> D = {d};
 
-    bool stopFlag = false;      //a flag to determine when the loop should be stoped
+    bool stopFlag = false;
 
     while (!stopFlag)
     {
         d = 1.5 * d;
         D.push_back(d);
-        //if ((1.5 * d) > nIn1 || (1.5 * d) > nIn2)
         if ((1.5 * d) > maxh)
             stopFlag = true;
     }
     reverse(D.begin(), D.end());
 
-    map<int, int> height; //to keep the track of the heights during dadda reduction
+    map<int, int> height;
 
     for (auto i : LevelizedPartials)
     {
         height[i.first] = i.second.size();
     }
 
-    vector<PartialProduct> GeneratedAtLevel; //all partial products generated a level of wallce tree computations
+    vector<PartialProduct> GeneratedAtLevel;
     for (auto n = 0u; n < D.size(); n++)
     {
         for (auto i = 0u; i < LevelizedPartials.size(); i++)
@@ -97,7 +110,6 @@ vector<int> Dadda(map<int, int> Ins, int nIn1, int nIn2, string &file) // Get tw
         GeneratedAtLevel.clear();
     }
 
-    //Some of the input partial product needs to go directely to output, so we connect them with a = b assignment!
     for (auto &i : LevelizedPartials)
     {
         for (auto &j : i.second)
@@ -111,11 +123,9 @@ vector<int> Dadda(map<int, int> Ins, int nIn1, int nIn2, string &file) // Get tw
             }
         }
     }
-    ////////////////////
 
-    vector<PartialProduct> OutPar1; //this output is always has more bits
+    vector<PartialProduct> OutPar1;
     vector<PartialProduct> OutPar2;
-    //for determining the size of the two outputs
     int singleBitNumber = 0;
     int nOut1 = 0;
     int nOut2 = 0;
@@ -130,7 +140,6 @@ vector<int> Dadda(map<int, int> Ins, int nIn1, int nIn2, string &file) // Get tw
         }
     }
 
-    //to count the number of the single output that should directely go to the final output
     for (auto i = 0u; i < LevelizedPartials.size(); i++)
     {
         if (LevelizedPartials[i].size() == 1)
@@ -138,7 +147,7 @@ vector<int> Dadda(map<int, int> Ins, int nIn1, int nIn2, string &file) // Get tw
         else
             break;
     }
-    //for Collecting two final numbers as outputs
+
     for (auto i = 0u; i < LevelizedPartials.size(); i++)
     {
         if (LevelizedPartials[i].size() == 1)
@@ -149,14 +158,49 @@ vector<int> Dadda(map<int, int> Ins, int nIn1, int nIn2, string &file) // Get tw
             OutPar2.push_back(LevelizedPartials[i][1]);
         }
     }
-    /////////////////////
 
-    //Generating the output verilog file
-    GenerateHeader(Ins.size(), "DT", file);
+    GenerateHeader(Ins.size(), typeName, file);
     GenereateInOutSig(Ins, nOut1, nOut2, file);
-    vector<int> signalIDs = Component::collectIDs(compList); //all signals IDs
+    vector<int> signalIDs = Component::collectIDs(compList);
     map<int, string> wireHash = generateWires(Ins, signalIDs, OutPar1, OutPar2, file);
     GenerateComponents(wireHash, compList, file);
     file += "endmodule\n";
-    return {(int)OutPar1.size(), (int)OutPar2.size(), singleBitNumber}; //the first and second members are the size of out1 and out2, respectively, and the third output is the number pf single bits at the begining
+    return {(int)OutPar1.size(), (int)OutPar2.size(), singleBitNumber};
+}
+
+vector<int> ApproxDadda(map<int, int> Ins, int nIn1, int nIn2, string &file)
+{
+    int maxWeight = 0;
+    for (auto const &it : Ins)
+    {
+        maxWeight = max(maxWeight, it.first);
+    }
+
+    int truncateBits = 0;
+    if (maxWeight > 0)
+    {
+        truncateBits = max(1, min(maxWeight, min(nIn1, nIn2) / 4));
+    }
+
+    map<int, int> approxIns;
+    for (auto const &it : Ins)
+    {
+        if (it.first < truncateBits)
+        {
+            continue;
+        }
+        approxIns[it.first - truncateBits] += it.second;
+    }
+
+    if (approxIns.empty())
+    {
+        approxIns[0] = 1;
+    }
+
+    return DaddaCore(approxIns, nIn1, nIn2, file, "ADT", truncateBits);
+}
+
+vector<int> Dadda(map<int, int> Ins, int nIn1, int nIn2, string &file) // Get two integer numbers as input sizes and create the Wallace Tree PPA
+{
+    return DaddaCore(Ins, nIn1, nIn2, file, "DT", 0);
 }

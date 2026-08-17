@@ -9,7 +9,7 @@ int PartialProduct::count = 0;
 string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int thirdStage) // Connect three stages to create a multiplier
 {
     assert(firstStage >= 1 && firstStage <= 2 && "The assigned number for the first stage should be 1 or 2!");
-    assert(secondStage >= 1 && secondStage <= 4 && "The assigned number for the second stage should be 1, 2, 3, or 4!");
+    assert(secondStage >= 1 && secondStage <= 5 && "The assigned number for the second stage should be 1, 2, 3, 4, or 5!");
     assert(thirdStage >= 1 && thirdStage <= 7 && "The assigned number for the third stage should be 1, 2, 3, 4, 5, 6, or 7!");
     string firstStageName, secondStageName, thirdStageName;
 
@@ -65,6 +65,10 @@ string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int 
     case 4:
         PPAInfo = Wallace5(PPGInfo, nIn1, nIn2, file);
         secondStageName = "CWT";
+        break;
+    case 5:
+        PPAInfo = ApproxDadda(PPGInfo, nIn1, nIn2, file);
+        secondStageName = "ADT";
         break;
     }
     //cout << "Partial Product accumulation: DONE" << endl;
@@ -136,7 +140,7 @@ string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int 
 string nameMaker (int nIn1, int nIn2, int firstStage, int secondStage, int thirdStage) //create name for the final Verilog file
 {
     assert(firstStage >= 1 && firstStage <= 2 && "The assigned number for the first stage should be 1 or 2!");
-    assert(secondStage >= 1 && secondStage <= 4 && "The assigned number for the second stage should be 1, 2, 3, or 4!");
+    assert(secondStage >= 1 && secondStage <= 5 && "The assigned number for the second stage should be 1, 2, 3, 4, or 5!");
     assert(thirdStage >= 1 && thirdStage <= 7 && "The assigned number for the third stage should be 1, 2, 3, 4, 5, 6, or 7!");
     string firstStageName, secondStageName, thirdStageName;
 
@@ -165,6 +169,9 @@ string nameMaker (int nIn1, int nIn2, int firstStage, int secondStage, int third
         break;
     case 4:
         secondStageName = "CWT";
+        break;
+    case 5:
+        secondStageName = "ADT";
         break;
     }
     /////////////////////////////////////////////////////

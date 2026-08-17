@@ -441,6 +441,8 @@ string infoPrint (int firstInputLength, int secondInputLength, int firstStageID,
             break;
         case 4: secondStage = "Counter-based Wallace tree [CWT]";
             break;
+        case 5: secondStage = "Approximate Dadda tree [ADT]";
+            break;
     }
     switch (thirdStageID)
     {

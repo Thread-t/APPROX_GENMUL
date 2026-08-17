@@ -56,10 +56,11 @@ int main(int argc, char **argv)
     cout<<"2. Wallace tree"<<endl;
     cout<<"3. Dadda tree"<<endl;
     cout<<"4. Counter-based Wallace tree"<<endl;
+    cout<<"5. Approximate Dadda tree (FV-LIDAC style)"<<endl;
     cout<<">> ";
     cin>>secondStageString;
     cout<<"*************************************************************************"<<endl;
-    if (secondStageString!="1" && secondStageString!="2" && secondStageString!="3" && secondStageString!="4")
+    if (secondStageString!="1" && secondStageString!="2" && secondStageString!="3" && secondStageString!="4" && secondStageString!="5")
     {
         cout<<"Wrong input!!!"<<endl;
         return 0;
