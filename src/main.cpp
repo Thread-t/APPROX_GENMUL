@@ -20,7 +20,9 @@ int main(int argc, char **argv)
         in1Size = stoi(argv[4]);
         in2Size = stoi(argv[5]);
         if (argc >= 7) {
-            approxErrorLevel = stoi(argv[6]);
+            if (secondStage == 5) {
+                approxErrorLevel = stoi(argv[6]);
+            }
         }
         cmdline = true;
     }
