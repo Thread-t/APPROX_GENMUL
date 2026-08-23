@@ -12,13 +12,20 @@ int main(int argc, char **argv)
     int in1Size = 0, in2Size = 0;
     string fileAddress;
 
-    // test
-    //cout<<"argc: "<<argc<<endl;
     bool cmdline = false;
-    if (argc==2) {
+    if (argc >= 6) {
+        firstStage = stoi(argv[1]);
+        secondStage = stoi(argv[2]);
+        thirdStage = stoi(argv[3]);
+        in1Size = stoi(argv[4]);
+        in2Size = stoi(argv[5]);
+        if (argc >= 7) {
+            approxErrorLevel = stoi(argv[6]);
+        }
+        cmdline = true;
+    }
+    else if (argc==2) {
       if (std::string(argv[1]) == "A")  {
-      //moduleConnector(in1Size, in2Size, fileAddress, firstStage, secondStage, thirdStage);
-      //moduleConnector(10, 10, "test-out-A.v", 1 , 1, 1);
 	  in1Size = 10; in2Size = 10; fileAddress = "test-out-A.v"; firstStage = 1; secondStage = 1; thirdStage = 1;
 	  cmdline = true;
 	  cout << "Running in cmd line mode "<<endl;

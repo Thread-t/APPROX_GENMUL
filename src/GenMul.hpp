@@ -1,4 +1,4 @@
 #include "ModuleConnector.hpp"
 
-string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int thirdStage); // Connect three stages to create a multiplier
-string nameMaker (int nIn1, int nIn2, int firstStage, int secondStage, int thirdStage); //create name for the final Verilog file
+string GenMul(int nIn1, int nIn2, int firstStage, int secondStage, int thirdStage, int approxErrorLevel = 1); // create Multiplier 
+string GenMulNameMaker (int nIn1, int nIn2, int firstStage, int secondStage, int thirdStage, int approxErrorLevel = 1);  //create Multiplier name

@@ -12,6 +12,7 @@ string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int 
     assert(firstStage >= 1 && firstStage <= 2 && "The assigned number for the first stage should be 1 or 2!");
     assert(secondStage >= 1 && secondStage <= 5 && "The assigned number for the second stage should be 1, 2, 3, 4, or 5!");
     assert(thirdStage >= 1 && thirdStage <= 7 && "The assigned number for the third stage should be 1, 2, 3, 4, 5, 6, or 7!");
+    assert(approxErrorLevel >= 0 && approxErrorLevel <= 3 && "Approximation level must be 0, 1, 2, or 3");
     string firstStageName, secondStageName, thirdStageName;
 
     string file = ""; //the content of the final verilog file
@@ -29,7 +30,7 @@ string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int 
 
     // Template-based approximate full-adder generation.
     // No external FV-LIDAC netlist is read here.
-    ApproxConfig::configureTemplateApproxFA();
+    ApproxConfig::configureTemplateApproxFA(approxErrorLevel);
     GenerateApproxModules(file);
     //
     //Implementing the first stage of multiplier
@@ -148,7 +149,7 @@ string nameMaker (int nIn1, int nIn2, int firstStage, int secondStage, int third
     assert(firstStage >= 1 && firstStage <= 2 && "The assigned number for the first stage should be 1 or 2!");
     assert(secondStage >= 1 && secondStage <= 5 && "The assigned number for the second stage should be 1, 2, 3, 4, or 5!");
     assert(thirdStage >= 1 && thirdStage <= 7 && "The assigned number for the third stage should be 1, 2, 3, 4, 5, 6, or 7!");
-
+    assert(approxErrorLevel >= 0 && approxErrorLevel <= 3 && "Approximation level must be 0, 1, 2, or 3");
     string firstStageName, secondStageName, thirdStageName;
 
     string name;
@@ -207,8 +208,10 @@ string nameMaker (int nIn1, int nIn2, int firstStage, int secondStage, int third
         break;
     }
 
- 
-    name = to_string(nIn1) + "_" + to_string(nIn2) + "_" + firstStageName + "_" + secondStageName + "_" + thirdStageName + "_GenMul.v";
+    if (secondStage == 5)
+        name = to_string(nIn1) + "_" + to_string(nIn2) + "_" + firstStageName + "_" + secondStageName + "_" + thirdStageName + "_E" + to_string(approxErrorLevel) + "_GenMul.v";
+    else
+        name = to_string(nIn1) + "_" + to_string(nIn2) + "_" + firstStageName + "_" + secondStageName + "_" + thirdStageName + "_GenMul.v";
     return name;
 
 }
