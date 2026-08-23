@@ -145,6 +145,10 @@ string HalfAdder::returnVerilogCode(map<int, string>& signalMap, int ID)
     return out;
 }
 
+//Sayak: The following function generates a unique module 
+// name based on the truth table of the approximate full adder. 
+// It encodes the truth table into an integer ID and returns a 
+// string with the format "approx_fa_<id>".
 string FullAdder::returnVerilogCode(map<int, string>& signalMap, int ID)
 {
     // allow approximate module substitution based on weight

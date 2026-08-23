@@ -7,9 +7,9 @@
 int main(int argc, char **argv)
 {
     string firstStageString, secondStageString, thirdStageString;
-    int firstStage, secondStage, thirdStage;
+    int firstStage = 1, secondStage = 1, thirdStage = 1, approxErrorLevel = 1;
 
-    int in1Size, in2Size;
+    int in1Size = 0, in2Size = 0;
     string fileAddress;
 
     // test
@@ -17,8 +17,8 @@ int main(int argc, char **argv)
     bool cmdline = false;
     if (argc==2) {
       if (std::string(argv[1]) == "A")  {
-          //moduleConnector(in1Size, in2Size, fileAddress, firstStage, secondStage, thirdStage);
-          //moduleConnector(10, 10, "test-out-A.v", 1 , 1, 1);
+      //moduleConnector(in1Size, in2Size, fileAddress, firstStage, secondStage, thirdStage);
+      //moduleConnector(10, 10, "test-out-A.v", 1 , 1, 1);
 	  in1Size = 10; in2Size = 10; fileAddress = "test-out-A.v"; firstStage = 1; secondStage = 1; thirdStage = 1;
 	  cmdline = true;
 	  cout << "Running in cmd line mode "<<endl;
@@ -67,6 +67,22 @@ int main(int argc, char **argv)
     }
     secondStage = stoi(secondStageString);
 
+    if (secondStage == 5)
+    {
+        cout << "Approximation error level for FV-LIDAC-style FA:" << endl;
+        cout << "0. Exact" << endl;
+        cout << "1. Low" << endl;
+        cout << "2. Medium" << endl;
+        cout << "3. High" << endl;
+        cout << ">> ";
+        cin >> approxErrorLevel;
+        if (cin.fail() || approxErrorLevel < 0 || approxErrorLevel > 3)
+        {
+            cout << "Wrong input!!!" << endl;
+            return 0;
+        }
+    }
+
     cout<<"Enter the number indicating Final Stage Adder (FSA) architecture: "<<endl;
     cout<<"1. Ripple Carry Adder"<<endl;
     cout<<"2. Carry Look-Ahead Adder"<<endl;
@@ -108,11 +124,11 @@ int main(int argc, char **argv)
 
   } // end of cmdline == false
 
-    string name = GenMulNameMaker(in1Size, in2Size, firstStage, secondStage, thirdStage);
+    string name = GenMulNameMaker(in1Size, in2Size, firstStage, secondStage, thirdStage, approxErrorLevel);
     cout<<"*************************************************************************"<<endl;
     cout<<"Output file: "<<name<<endl;
 
-    string finalCode = GenMul(in1Size, in2Size, firstStage, secondStage, thirdStage);
+    string finalCode = GenMul(in1Size, in2Size, firstStage, secondStage, thirdStage, approxErrorLevel);
 
     ofstream file;
     file.open(name);

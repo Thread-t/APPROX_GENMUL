@@ -25,31 +25,48 @@ namespace ApproxConfig {
         return string("approx_fa_") + to_string(id);
     }
 
-    // A simple template-based approximate FA.
+    // A template-based approximate FA.
     // This is intentionally generated from a truth table instead of copying FV-LIDAC netlist code.
-    // The template below is a low-cost approximation: it preserves the exact output for the smallest cases,
-    // and changes the carry/sum for the one critical 3-input case where a simplified carry is acceptable.
-    // Truth-table encoding: {C,S} with two-bit values for each 3-bit input ordering (X,Y,Z).
-    static vector<int> defaultApproxTruthTable()
+    // We keep the same 3-input full-adder structure, but deliberately alter a few high-impact cases
+    // to create a controllable error level. The encoding is {C,S} by index order X*4 + Y*2 + Z.
+    vector<int> defaultApproxTruthTable(int errorLevel)
     {
-        // index ordering is X*4 + Y*2 + Z, values stored as (C<<1)|S
-        // This intentionally keeps the exact behavior for the easy cases and approximates one high-cost case.
-        return {
-            0,  // 000 -> (0,0)
-            1,  // 001 -> (0,1)
-            1,  // 010 -> (0,1)
-            3,  // 011 -> (1,1)
-            1,  // 100 -> (0,1)
-            3,  // 101 -> (1,1)
-            2,  // 110 -> (1,0)  // approximate, not exact carry behaviour
-            3   // 111 -> (1,1)
-        };
+        // Exact full-adder truth table:
+        // 000 -> 0, 001 -> 1, 010 -> 1, 011 -> 3,
+        // 100 -> 1, 101 -> 3, 110 -> 2, 111 -> 3
+        vector<int> tt = {0, 1, 1, 3, 1, 3, 2, 3};
+
+        switch (errorLevel)
+        {
+            case 0:
+                return tt; // exact
+            case 1:
+                // Low-error approximation: flip the 110 case from (1,0) to (1,1)
+                // This produces a small carry/sum distortion while keeping most outputs exact.
+                tt[6] = 3;
+                return tt;
+            case 2:
+                // Medium-error approximation: also distort the 111 case from (1,1) to (1,0)
+                tt[6] = 3;
+                tt[7] = 2;
+                return tt;
+            case 3:
+                // High-error approximation: aggressively distort the critical sums/carries
+                // for 011, 101, 110, and 111.
+                tt[3] = 1;
+                tt[5] = 1;
+                tt[6] = 3;
+                tt[7] = 2;
+                return tt;
+            default:
+                return tt;
+        }
     }
 
-    void configureTemplateApproxFA()
+    void configureTemplateApproxFA(int errorLevel)
     {
         clear();
-        vector<int> tt = defaultApproxTruthTable();
+        vector<int> tt = defaultApproxTruthTable(errorLevel);
         setApproxForWeight(1, tt);
         setApproxForWeight(2, tt);
         setApproxForWeight(4, tt);

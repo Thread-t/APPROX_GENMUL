@@ -7,7 +7,7 @@
 
 int PartialProduct::count = 0;
 
-string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int thirdStage) // Connect three stages to create a multiplier
+string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int thirdStage, int approxErrorLevel) // Connect three stages to create a multiplier
 {
     assert(firstStage >= 1 && firstStage <= 2 && "The assigned number for the first stage should be 1 or 2!");
     assert(secondStage >= 1 && secondStage <= 5 && "The assigned number for the second stage should be 1, 2, 3, 4, or 5!");
@@ -143,11 +143,12 @@ string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int 
     return file;
 }
 
-string nameMaker (int nIn1, int nIn2, int firstStage, int secondStage, int thirdStage) //create name for the final Verilog file
+string nameMaker (int nIn1, int nIn2, int firstStage, int secondStage, int thirdStage, int approxErrorLevel) //create name for the final Verilog file
 {
     assert(firstStage >= 1 && firstStage <= 2 && "The assigned number for the first stage should be 1 or 2!");
     assert(secondStage >= 1 && secondStage <= 5 && "The assigned number for the second stage should be 1, 2, 3, 4, or 5!");
     assert(thirdStage >= 1 && thirdStage <= 7 && "The assigned number for the third stage should be 1, 2, 3, 4, 5, 6, or 7!");
+
     string firstStageName, secondStageName, thirdStageName;
 
     string name;
@@ -206,7 +207,8 @@ string nameMaker (int nIn1, int nIn2, int firstStage, int secondStage, int third
         break;
     }
 
-    name = to_string(nIn1) + "_" + to_string(nIn2) + "_" + firstStageName + "_" + secondStageName + "_" + thirdStageName + "_" + "GenMul.v";
+ 
+    name = to_string(nIn1) + "_" + to_string(nIn2) + "_" + firstStageName + "_" + secondStageName + "_" + thirdStageName + "_GenMul.v";
     return name;
 
 }

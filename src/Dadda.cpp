@@ -177,12 +177,18 @@ vector<int> ApproxDadda(map<int, int> Ins, int nIn1, int nIn2, string &file)
     }
 
     int truncateBits = 0;
+    // The number of bits to truncate is determined by 
+    // the maximum weight of the input partial products. 
+    //The truncation is set to be at least 1 and at most 
+    //a quarter of the minimum input size, but not exceeding 
+    // the maximum weight of the inputs.
     if (maxWeight > 0)
     {
         truncateBits = max(1, min(maxWeight, min(nIn1, nIn2) / 4));
     }
 
     map<int, int> approxIns;
+    // The input partial products are adjusted based on the truncation.
     for (auto const &it : Ins)
     {
         if (it.first < truncateBits)
