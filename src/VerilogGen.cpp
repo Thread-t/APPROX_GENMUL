@@ -1,4 +1,6 @@
 #include "VerilogGen.hpp"
+#include "ApproxConfig.hpp"
+#include <cstdio>
 
 void GenerateMainHeader(int nIn1, int nIn2, string &file) //generate the header of module for main multiplier
 {
@@ -417,6 +419,56 @@ void GenerateCounter (string &file)
   file +="assign S2 = ~ ( W6 ^ ( ~ ( W1 & W2 ) ) );\n";
   file +="assign S1 = ~ ( W5 & ( ~ ( W3 & W4 ) ) & ( ~ ( W1 & W2 & W6 ) ) );\n";
   file +="endmodule\n";
+}
+
+// Sayak: Template for generating approximate modules as per LIDAC logic
+void GenerateApproxModule(const string &moduleName, const vector<int> &truthTable, string &file)
+{
+    // moduleName expected like approx_fa_xxx
+    file += "module ";
+    file += moduleName;
+    file += "(X, Y, Z, S, C);\n";
+    file += "  output C;\n";
+    file += "  output S;\n";
+    file += "  input X;\n";
+    file += "  input Y;\n";
+    file += "  input Z;\n";
+    file += "  reg S;\n";
+    file += "  reg C;\n";
+    file += "  always @(*) begin\n";
+    file += "    case ({X,Y,Z})\n";
+    for (int i = 0; i < 8; ++i)
+    {
+        int val = 0;
+        if (i < (int)truthTable.size())
+            val = truthTable[i] & 3;
+        int S = val & 1;
+        int C = (val >> 1) & 1;
+        char buf[200];
+        sprintf(buf, "      3'b%03b: begin S = 1'b%d; C = 1'b%d; end\n", ((i>>2)&1)*1 + ((i>>1)&1)*2 + (i&1)*4, S, C);
+        // The above formatting for bits isn't straightforward; instead format manually
+        string bits = "";
+        bits.push_back('0' + ((i >> 2) & 1));
+        bits.push_back('0' + ((i >> 1) & 1));
+        bits.push_back('0' + (i & 1));
+        char line[256];
+        snprintf(line, sizeof(line), "      3'b%s: begin S = 1'b%d; C = 1'b%d; end\n", bits.c_str(), S, C);
+        file += line;
+    }
+    file += "    endcase\n";
+    file += "  end\n";
+    file += "endmodule\n";
+}
+
+// Sayak: Generate all approximate modules stored in ApproxConfig
+void GenerateApproxModules(string &file)
+{
+    // lazy-load modules from ApproxConfig
+    auto modules = ApproxConfig::getModulesMap();
+    for (auto &m : modules)
+    {
+        GenerateApproxModule(m.first, m.second, file);
+    }
 }
 
 

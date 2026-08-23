@@ -1,4 +1,5 @@
 #include "ModuleConnector.hpp"
+#include "ApproxConfig.hpp"
 
 //first stage => 1: Simple PPG (unsigned)    2:simple PPG (signed)
 //second stage => 1: Array    2:Wallace   3: Dadda
@@ -25,6 +26,11 @@ string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int 
     GenerateHalfAdder(file);
     GenerateConstantOne(file);
     GenerateCounter(file);
+
+    // Template-based approximate full-adder generation.
+    // No external FV-LIDAC netlist is read here.
+    ApproxConfig::configureTemplateApproxFA();
+    GenerateApproxModules(file);
     //
     //Implementing the first stage of multiplier
     PartialProduct::SetCountZero();

@@ -1,4 +1,5 @@
 #include "component.hpp"
+#include "ApproxConfig.hpp"
 #define UNUSED(x) (void)(x)
 
 Component::Component(vector<PartialProduct> ins)
@@ -146,7 +147,11 @@ string HalfAdder::returnVerilogCode(map<int, string>& signalMap, int ID)
 
 string FullAdder::returnVerilogCode(map<int, string>& signalMap, int ID)
 {
-    string out = "  FullAdder U" + to_string(ID) + " (" + signalMap[this->inputs[0].returnNo()] + ", " + signalMap[this->inputs[1].returnNo()] + ", " + signalMap[this->inputs[2].returnNo()] + ", " + signalMap[this->outputs[0].returnNo()] + ", " + signalMap[this->outputs[1].returnNo()] + ");";
+    // allow approximate module substitution based on weight
+    int weight = this->inputs[0].returnWeight();
+    string approx = ApproxConfig::getModuleForWeight(weight);
+    string moduleName = approx.empty() ? "FullAdder" : approx;
+    string out = "  " + moduleName + " U" + to_string(ID) + " (" + signalMap[this->inputs[0].returnNo()] + ", " + signalMap[this->inputs[1].returnNo()] + ", " + signalMap[this->inputs[2].returnNo()] + ", " + signalMap[this->outputs[0].returnNo()] + ", " + signalMap[this->outputs[1].returnNo()] + ");";
     return out;
 }
 

@@ -37,6 +37,8 @@ void GenerateFullAdderProp (string &file);
 void GenerateConstantOne (string &file);
 void GenerateCompressor (string &file);
 void GenerateCounter (string &file);
+void GenerateApproxModules(string &file);
+void GenerateApproxModule(const string &moduleName, const vector<int> &truthTable, string &file);
 string infoPrint (int firstInputLength, int secondInputLength, int firstStageID, int secondStageID, int thirdStageID);
 #endif
 
