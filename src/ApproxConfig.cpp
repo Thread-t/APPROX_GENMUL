@@ -105,7 +105,7 @@ namespace ApproxConfig {
         // This follows the typical FV-LIDAC idea: keep the higher columns exact and
         // simplify only the earliest bit positions where the error is less impactful.
         // For example, maxApproxWeight = 4 gives weights {1, 2, 4}.
-        for (int weight = 1; weight <= maxApproxWeight; weight *= 2) //do it weight++
+        for (int weight = 1; weight <= maxApproxWeight; weight++) 
         {
             setApproxForWeight(weight, tt);
         }
