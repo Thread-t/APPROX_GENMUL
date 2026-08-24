@@ -1,4 +1,5 @@
 #include "Dadda.hpp"
+#include "ApproxConfig.hpp"
 
 #define UNUSED(x) (void)(x)
 
@@ -97,6 +98,7 @@ static vector<int> DaddaCore(map<int, int> Ins, int nIn1, int nIn2, string &file
                 {
                     height[i] -= 2;
                     height[i + 1]++;
+                    // Sayak: Use approximate full-adder if available for the given weight
                     comp = new FullAdder({LevelizedPartials[i][0], LevelizedPartials[i][1], LevelizedPartials[i][2]});
                     comp->SetOutputs();
                     LevelizedPartials[i].erase(LevelizedPartials[i].begin(), LevelizedPartials[i].begin() + 3);
@@ -168,45 +170,56 @@ static vector<int> DaddaCore(map<int, int> Ins, int nIn1, int nIn2, string &file
     return {(int)OutPar1.size(), (int)OutPar2.size(), singleBitNumber};
 }
 
-vector<int> ApproxDadda(map<int, int> Ins, int nIn1, int nIn2, string &file)
+vector<int> ApproxDadda(map<int, int> Ins, int nIn1, int nIn2, string &file, int approxMethod)
 {
-    int maxWeight = 0;
-    for (auto const &it : Ins)
-    {
-        maxWeight = max(maxWeight, it.first);
-    }
+    // approxMethod: 0=exact, 1=truncation only, 2=FA substitution only, 3=both
+    assert(approxMethod >= 0 && approxMethod <= 3 && "Approximation method must be 0-3");
 
     int truncateBits = 0;
-    // The number of bits to truncate is determined by 
-    // the maximum weight of the input partial products. 
-    //The truncation is set to be at least 1 and at most 
-    //a quarter of the minimum input size, but not exceeding 
-    // the maximum weight of the inputs.
-    if (maxWeight > 0)
-    {
-        truncateBits = max(1, min(maxWeight, min(nIn1, nIn2) / 4));
-    }
 
-    map<int, int> approxIns;
-    // The input partial products are adjusted based on the truncation.
-    for (auto const &it : Ins)
+    // Apply truncation-based approximation if method includes it (1 or 3)
+    if (approxMethod == 1 || approxMethod == 3)
     {
-        if (it.first < truncateBits)
+        int maxWeight = 0;
+        for (auto const &it : Ins)
         {
-            continue;
+            maxWeight = max(maxWeight, it.first);
         }
-        approxIns[it.first - truncateBits] += it.second;
+
+        // The number of bits to truncate is determined by
+        // the maximum weight of the input partial products.
+        // The truncation is set to be at least 1 and at most
+        // a quarter of the minimum input size, but not exceeding
+        // the maximum weight of the inputs.
+        if (maxWeight > 0)
+        {
+            truncateBits = max(1, min(maxWeight, min(nIn1, nIn2) / 4));
+        }
     }
 
-    if (approxIns.empty())
-    {
-        approxIns[0] = 1;
-    }
+    // map<int, int> approxIns;
+    // // The input partial products are adjusted based on the truncation.
+    // for (auto const &it : Ins)
+    // {
+    //     if (truncateBits > 0 && it.first < truncateBits)
+    //     {
+    //         continue;
+    //     }
+    //     int adjustedWeight = (truncateBits > 0) ? (it.first - truncateBits) : it.first;
+    //     approxIns[adjustedWeight] += it.second;
+    // }
 
-    return DaddaCore(approxIns, nIn1, nIn2, file, "ADT", truncateBits);
+    // if (approxIns.empty())
+    // {
+    //     approxIns[0] = 1;
+    // }
+    ApproxConfig::setLastTruncateBits(truncateBits);
+
+    return DaddaCore(Ins, nIn1, nIn2, file, "ADT", truncateBits);
 }
 
 vector<int> Dadda(map<int, int> Ins, int nIn1, int nIn2, string &file) // Get two integer numbers as input sizes and create the Wallace Tree PPA
 {
+    ApproxConfig::setLastTruncateBits(0);
     return DaddaCore(Ins, nIn1, nIn2, file, "DT", 0);
 }

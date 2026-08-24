@@ -4,12 +4,17 @@ namespace ApproxConfig {
 
     static map<int, string> weightToModule;
     static map<string, vector<int>> modules;
+    static int lastTruncateBits = 0;
 
     void clear()
     {
         weightToModule.clear();
         modules.clear();
+        lastTruncateBits = 0;
     }
+
+    void setLastTruncateBits(int bits) { lastTruncateBits = bits; }
+    int getLastTruncateBits() { return lastTruncateBits; }
 
     // Helper function to generate a unique module name based on the truth table
     static string makeModuleName(const vector<int> &tt)
@@ -25,51 +30,85 @@ namespace ApproxConfig {
         return string("approx_fa_") + to_string(id);
     }
 
-    // A template-based approximate FA.
-    // This is intentionally generated from a truth table instead of copying FV-LIDAC netlist code.
-    // We keep the same 3-input full-adder structure, but deliberately alter a few high-impact cases
-    // to create a controllable error level. The encoding is {C,S} by index order X*4 + Y*2 + Z.
-    vector<int> defaultApproxTruthTable(int errorLevel)
+    // Exact full-adder truth table.
+    // Encoding is {C,S} by index order X*4 + Y*2 + Z.
+    vector<int> exactFATruthTable()
     {
-        // Exact full-adder truth table:
-        // 000 -> 0, 001 -> 1, 010 -> 1, 011 -> 3,
-        // 100 -> 1, 101 -> 3, 110 -> 2, 111 -> 3
-        vector<int> tt = {0, 1, 1, 3, 1, 3, 2, 3};
+        return {0, 1, 1, 2, 1, 2, 2, 3};
+    }
 
-        switch (errorLevel)
+    // sayak: Apply a controlled number of bit distortions to the exact FA truth table.
+    // The function takes a list of truth-table indices to modify and a list of
+    // replacement values. This keeps the approximation modular and can be reused for
+    // exact, one-bit-error, two-bit-error, and higher-order FA variants.
+    static vector<int> applyTruthTableErrors(const vector<int> &base, const vector<int> &indices, const vector<int> &newValues)
+    {
+        vector<int> tt = base;
+        int count = min((int)indices.size(), (int)newValues.size());
+        for (int i = 0; i < count; ++i)
+        {
+            // Ensure the index is valid before applying the error
+            if (indices[i] >= 0 && indices[i] < (int)tt.size())
+            {
+                tt[indices[i]] = newValues[i];
+            }
+        }
+        return tt;
+    }
+
+    vector<int> oneBitErrorFATruthTable()
+    {
+        vector<int> tt = exactFATruthTable();
+        // Distort only a single critical case: 110 from (1,0) to (1,1)
+        // which changes the carry/sum pattern slightly without making the FA extremely inaccurate.
+        return applyTruthTableErrors(tt, {6}, {3});
+    }
+
+    vector<int> twoBitErrorFATruthTable()
+    {
+        vector<int> tt = exactFATruthTable();
+        // Distort 110 and 111 to create a moderate approximate FA.
+        return applyTruthTableErrors(tt, {6, 7}, {3, 2});
+    }
+
+    vector<int> nBitErrorFATruthTable(int bitErrorCount)
+    {
+        vector<int> tt = exactFATruthTable();
+        switch (bitErrorCount)
         {
             case 0:
-                return tt; // exact
+                return tt;
             case 1:
-                // Low-error approximation: flip the 110 case from (1,0) to (1,1)
-                // This produces a small carry/sum distortion while keeping most outputs exact.
-                tt[6] = 3;
-                return tt;
+                return oneBitErrorFATruthTable();
             case 2:
-                // Medium-error approximation: also distort the 111 case from (1,1) to (1,0)
-                tt[6] = 3;
-                tt[7] = 2;
-                return tt;
-            case 3:
-                // High-error approximation: aggressively distort the critical sums/carries
-                // for 011, 101, 110, and 111.
-                tt[3] = 1;
-                tt[5] = 1;
-                tt[6] = 3;
-                tt[7] = 2;
-                return tt;
+                return twoBitErrorFATruthTable();
             default:
-                return tt;
+            {
+                // Higher-order approximation: distort several critical cases.
+                // This is still modular and derived from the same exact FA table.
+                return applyTruthTableErrors(tt, {3, 5, 6, 7}, {2, 1, 3, 2});
+            }
         }
     }
 
-    void configureTemplateApproxFA(int errorLevel)
+    vector<int> defaultApproxTruthTable(int errorLevel)
+    {
+        return nBitErrorFATruthTable(errorLevel);
+    }
+
+    void configureTemplateApproxFA(int errorLevel, int maxApproxWeight)
     {
         clear();
         vector<int> tt = defaultApproxTruthTable(errorLevel);
-        setApproxForWeight(1, tt);
-        setApproxForWeight(2, tt);
-        setApproxForWeight(4, tt);
+
+        // Approximate only the low-significance columns.
+        // This follows the typical FV-LIDAC idea: keep the higher columns exact and
+        // simplify only the earliest bit positions where the error is less impactful.
+        // For example, maxApproxWeight = 4 gives weights {1, 2, 4}.
+        for (int weight = 1; weight <= maxApproxWeight; weight *= 2) //do it weight++
+        {
+            setApproxForWeight(weight, tt);
+        }
     }
     
     // Set the approximate full-adder truth table for a given weight

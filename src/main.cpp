@@ -7,7 +7,7 @@
 int main(int argc, char **argv)
 {
     string firstStageString, secondStageString, thirdStageString;
-    int firstStage = 1, secondStage = 1, thirdStage = 1, approxErrorLevel = 1;
+    int firstStage = 1, secondStage = 1, thirdStage = 1, approxErrorLevel = 1, approxMethod = 3;
 
     int in1Size = 0, in2Size = 0;
     string fileAddress;
@@ -19,9 +19,17 @@ int main(int argc, char **argv)
         thirdStage = stoi(argv[3]);
         in1Size = stoi(argv[4]);
         in2Size = stoi(argv[5]);
+        //sayak: If the second stage is Approximate Dadda tree, 
+        //then we can optionally specify the approximation 
+        // error level as the 6th argument.
         if (argc >= 7) {
             if (secondStage == 5) {
                 approxErrorLevel = stoi(argv[6]);
+            }
+        }
+        if (argc >= 8) {
+            if (secondStage == 5) {
+                approxMethod = stoi(argv[7]);
             }
         }
         cmdline = true;
@@ -76,6 +84,8 @@ int main(int argc, char **argv)
     }
     secondStage = stoi(secondStageString);
 
+    //sayak: If the second stage is Approximate Dadda tree, 
+    // then we can optionally specify the approximation error level.
     if (secondStage == 5)
     {
         cout << "Approximation error level for FV-LIDAC-style FA:" << endl;
@@ -86,6 +96,23 @@ int main(int argc, char **argv)
         cout << ">> ";
         cin >> approxErrorLevel;
         if (cin.fail() || approxErrorLevel < 0 || approxErrorLevel > 3)
+        {
+            cout << "Wrong input!!!" << endl;
+            return 0;
+        }
+    }
+
+    //
+    if (secondStage == 5)
+    {
+        cout << "Approximation method for FV-LIDAC-style ADT:" << endl;
+        cout << "0. Exact (no approximation)" << endl;
+        cout << "1. Truncation only" << endl;
+        cout << "2. FA-substitution only" << endl;
+        cout << "3. Both (truncation + FA-substitution)" << endl;
+        cout << ">> ";
+        cin >> approxMethod;
+        if (cin.fail() || approxMethod < 0 || approxMethod > 3)
         {
             cout << "Wrong input!!!" << endl;
             return 0;
@@ -133,11 +160,11 @@ int main(int argc, char **argv)
 
   } // end of cmdline == false
 
-    string name = GenMulNameMaker(in1Size, in2Size, firstStage, secondStage, thirdStage, approxErrorLevel);
+    string name = GenMulNameMaker(in1Size, in2Size, firstStage, secondStage, thirdStage, approxErrorLevel, approxMethod);
     cout<<"*************************************************************************"<<endl;
     cout<<"Output file: "<<name<<endl;
 
-    string finalCode = GenMul(in1Size, in2Size, firstStage, secondStage, thirdStage, approxErrorLevel);
+    string finalCode = GenMul(in1Size, in2Size, firstStage, secondStage, thirdStage, approxErrorLevel, approxMethod);
 
     ofstream file;
     file.open(name);

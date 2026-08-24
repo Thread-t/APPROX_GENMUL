@@ -7,12 +7,14 @@
 
 int PartialProduct::count = 0;
 
-string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int thirdStage, int approxErrorLevel) // Connect three stages to create a multiplier
+string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int thirdStage, int approxErrorLevel, int approxMethod) // Connect three stages to create a multiplier
 {
     assert(firstStage >= 1 && firstStage <= 2 && "The assigned number for the first stage should be 1 or 2!");
     assert(secondStage >= 1 && secondStage <= 5 && "The assigned number for the second stage should be 1, 2, 3, 4, or 5!");
     assert(thirdStage >= 1 && thirdStage <= 7 && "The assigned number for the third stage should be 1, 2, 3, 4, 5, 6, or 7!");
     assert(approxErrorLevel >= 0 && approxErrorLevel <= 3 && "Approximation level must be 0, 1, 2, or 3");
+    assert(approxMethod >= 0 && approxMethod <= 3 && "Approximation method must be 0-3");
+
     string firstStageName, secondStageName, thirdStageName;
 
     string file = ""; //the content of the final verilog file
@@ -29,10 +31,20 @@ string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int 
     GenerateCounter(file);
 
     // Template-based approximate full-adder generation.
-    // No external FV-LIDAC netlist is read here.
-    ApproxConfig::configureTemplateApproxFA(approxErrorLevel);
-    GenerateApproxModules(file);
-    //
+    // Only wire in approximate FAs when the Approximate Dadda tree is actually
+    // selected AND the chosen method uses FA substitution (2 = FA-sub only,
+    // 3 = truncation + FA-sub). Otherwise clear any stale config from a previous
+    // GenMul() call in this process, so exact/truncation-only builds stay exact.
+    if (secondStage == 5 && (approxMethod == 2 || approxMethod == 3))
+    {
+        ApproxConfig::configureTemplateApproxFA(approxErrorLevel);
+        GenerateApproxModules(file);
+    }
+    else
+    {
+        ApproxConfig::clear();
+    }
+
     //Implementing the first stage of multiplier
     PartialProduct::SetCountZero();
     bool sign;
@@ -144,7 +156,7 @@ string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int 
     return file;
 }
 
-string nameMaker (int nIn1, int nIn2, int firstStage, int secondStage, int thirdStage, int approxErrorLevel) //create name for the final Verilog file
+string nameMaker (int nIn1, int nIn2, int firstStage, int secondStage, int thirdStage, int approxErrorLevel, int approxMethod) //create name for the final Verilog file
 {
     assert(firstStage >= 1 && firstStage <= 2 && "The assigned number for the first stage should be 1 or 2!");
     assert(secondStage >= 1 && secondStage <= 5 && "The assigned number for the second stage should be 1, 2, 3, 4, or 5!");
@@ -209,7 +221,8 @@ string nameMaker (int nIn1, int nIn2, int firstStage, int secondStage, int third
     }
 
     if (secondStage == 5)
-        name = to_string(nIn1) + "_" + to_string(nIn2) + "_" + firstStageName + "_" + secondStageName + "_" + thirdStageName + "_E" + to_string(approxErrorLevel) + "_GenMul.v";
+        name = to_string(nIn1) + "_" + to_string(nIn2) + "_" + firstStageName + "_" + secondStageName + "_" + thirdStageName
+             + "_E" + to_string(approxErrorLevel) + "_M" + to_string(approxMethod) + "_GenMul.v";
     else
         name = to_string(nIn1) + "_" + to_string(nIn2) + "_" + firstStageName + "_" + secondStageName + "_" + thirdStageName + "_GenMul.v";
     return name;
