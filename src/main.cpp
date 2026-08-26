@@ -1,177 +1,216 @@
 #include "GenMul.hpp"
+
 #include <fstream>
+#include <iostream>
+#include <limits>
+#include <stdexcept>
+#include <string>
 
+namespace {
 
-//TODO: Adding later command line features
-//#pragma GCC diagnostic ignored "-Wunused-parameter"
+bool parseInteger(const char *text, int &value)
+{
+    try
+    {
+        size_t parsedCharacters = 0;
+        long long parsedValue = std::stoll(text, &parsedCharacters, 10);
+
+        if (text[parsedCharacters] != '\0' ||
+            parsedValue < std::numeric_limits<int>::min() ||
+            parsedValue > std::numeric_limits<int>::max())
+        {
+            return false;
+        }
+
+        value = static_cast<int>(parsedValue);
+        return true;
+    }
+    catch (const std::exception &)
+    {
+        return false;
+    }
+}
+
+bool parseArgument(const char *text, const std::string &name, int minimum, int maximum, int &value)
+{
+    if (!parseInteger(text, value) || value < minimum || value > maximum)
+    {
+        std::cerr << "Invalid " << name << ": " << text
+                  << " (expected " << minimum << ".." << maximum << ")" << std::endl;
+        return false;
+    }
+
+    return true;
+}
+
+bool readValue(const std::string &prompt, int minimum, int maximum, int &value)
+{
+    std::cout << prompt;
+    if (!(std::cin >> value) || value < minimum || value > maximum)
+    {
+        std::cerr << "Wrong input (expected " << minimum << ".." << maximum << ")." << std::endl;
+        return false;
+    }
+
+    return true;
+}
+
+void printUsage(const char *program)
+{
+    std::cerr
+        << "Usage:\n"
+        << "  " << program << " <ppg> <ppa> <fsa> <in1-bits> <in2-bits>\n"
+        << "  " << program << " <ppg> 5 <fsa> <in1-bits> <in2-bits>"
+        << " <dadda-column> <carry-mask> <sum-mask>\n\n"
+        << "ppg: 1=unsigned, 2=signed\n"
+        << "ppa: 1=array, 2=Wallace, 3=Dadda, 4=counter-Wallace, 5=approximate Dadda\n"
+        << "fsa: 1=ripple, 2=CLA, 3=Lander-Fischer, 4=Kogge-Stone,"
+        << " 5=Brent-Kung, 6=carry-skip, 7=serial-prefix\n"
+        << "carry-mask and sum-mask must be decimal values from 0 to 255.\n";
+}
+
+void printBanner()
+{
+    std::cout << "Compilation time: " << GLOBAL_COMPILATION_TIME << '\n'
+              << "Compilation SHA256 message digest: " << GLOBAL_SHA256 << "\n\n"
+              << "/-------------------------------------------------------------------------\\\n"
+              << "|  Multiplier Generator GenMul                                            |\n"
+              << "|                                                                         |\n"
+              << "|  Copyright (c) 2019-2020 University of Bremen, Germany.                 |\n"
+              << "|  Copyright (c) 2020 Johannes Kepler University Linz, Austria.           |\n"
+              << "|                                                                         |\n"
+              << "|  You can find GenMul at: http://www.sca-verification.org/genmul         |\n"
+              << "|  Contact us at genmul@sca-verification.org                              |\n"
+              << "\\-------------------------------------------------------------------------/\n\n";
+}
+
+} // namespace
+
 int main(int argc, char **argv)
 {
-    string firstStageString, secondStageString, thirdStageString;
-    int firstStage = 1, secondStage = 1, thirdStage = 1, approxErrorLevel = 1, approxMethod = 3;
+    int firstStage = 1;
+    int secondStage = 1;
+    int thirdStage = 1;
+    int in1Size = 0;
+    int in2Size = 0;
 
-    int in1Size = 0, in2Size = 0;
-    string fileAddress;
+    // Ignored unless PPA 5 (approximate Dadda) is selected.
+    int approxColumn = 0;
+    int approxCout = 23;
+    int approxSum = 105;
 
-    bool cmdline = false;
-    if (argc >= 6) {
-        firstStage = stoi(argv[1]);
-        secondStage = stoi(argv[2]);
-        thirdStage = stoi(argv[3]);
-        in1Size = stoi(argv[4]);
-        in2Size = stoi(argv[5]);
-        //sayak: If the second stage is Approximate Dadda tree, 
-        //then we can optionally specify the approximation 
-        // error level as the 6th argument.
-        if (argc >= 7) {
-            if (secondStage == 5) {
-                approxErrorLevel = stoi(argv[6]);
+    if (argc == 1)
+    {
+        printBanner();
+
+        std::cout << "Partial Product Generator (PPG):\n"
+                  << "1. Unsigned PPG\n"
+                  << "2. Signed PPG\n";
+        if (!readValue(">> ", 1, 2, firstStage))
+            return 1;
+
+        std::cout << "\nPartial Product Accumulator (PPA):\n"
+                  << "1. Array\n"
+                  << "2. Wallace tree\n"
+                  << "3. Dadda tree\n"
+                  << "4. Counter-based Wallace tree\n"
+                  << "5. Approximate Dadda tree\n";
+        if (!readValue(">> ", 1, 5, secondStage))
+            return 1;
+
+        std::cout << "\nFinal Stage Adder (FSA):\n"
+                  << "1. Ripple Carry Adder\n"
+                  << "2. Carry Look-Ahead Adder\n"
+                  << "3. Lander-Fischer Adder\n"
+                  << "4. Kogge-Stone Adder\n"
+                  << "5. Brent-Kung Adder\n"
+                  << "6. Carry Skip Adder\n"
+                  << "7. Serial Prefix Adder\n";
+        if (!readValue(">> ", 1, 7, thirdStage))
+            return 1;
+
+        if (!readValue("First input size: ", 1, std::numeric_limits<int>::max(), in1Size) ||
+            !readValue("Second input size: ", 1, std::numeric_limits<int>::max(), in2Size))
+        {
+            return 1;
+        }
+
+        if (secondStage == 5)
+        {
+            const int maximumColumn = in1Size + in2Size - 2;
+            std::cout << "\nThe selected Dadda column contains only approximate full adders; "
+                      << "half adders remain exact.\n";
+
+            if (!readValue("Dadda column to approximate: ", 0, maximumColumn, approxColumn) ||
+                !readValue("Carry truth-table mask (0..255): ", 0, 255, approxCout) ||
+                !readValue("Sum truth-table mask (0..255): ", 0, 255, approxSum))
+            {
+                return 1;
             }
         }
-        if (argc >= 8) {
-            if (secondStage == 5) {
-                approxMethod = stoi(argv[7]);
+    }
+    else
+    {
+        if (argc != 6 && argc != 9)
+        {
+            printUsage(argv[0]);
+            return 1;
+        }
+
+        if (!parseArgument(argv[1], "PPG", 1, 2, firstStage) ||
+            !parseArgument(argv[2], "PPA", 1, 5, secondStage) ||
+            !parseArgument(argv[3], "FSA", 1, 7, thirdStage) ||
+            !parseArgument(argv[4], "first input size", 1, std::numeric_limits<int>::max(), in1Size) ||
+            !parseArgument(argv[5], "second input size", 1, std::numeric_limits<int>::max(), in2Size))
+        {
+            return 1;
+        }
+
+        if (secondStage == 5)
+        {
+            if (argc != 9)
+            {
+                printUsage(argv[0]);
+                return 1;
+            }
+
+            const int maximumColumn = in1Size + in2Size - 2;
+            if (!parseArgument(argv[6], "Dadda column", 0, maximumColumn, approxColumn) ||
+                !parseArgument(argv[7], "carry mask", 0, 255, approxCout) ||
+                !parseArgument(argv[8], "sum mask", 0, 255, approxSum))
+            {
+                return 1;
             }
         }
-        cmdline = true;
-    }
-    else if (argc==2) {
-      if (std::string(argv[1]) == "A")  {
-	  in1Size = 10; in2Size = 10; fileAddress = "test-out-A.v"; firstStage = 1; secondStage = 1; thirdStage = 1;
-	  cmdline = true;
-	  cout << "Running in cmd line mode "<<endl;
-      }
-    }
-
-  if (cmdline == false ) {
-    cout<<"Compilation time: "<<GLOBAL_COMPILATION_TIME<<endl;
-    cout<<"Compilation SHA256 message digest: "<<GLOBAL_SHA256<<endl<<endl;
-    cout<<"/-------------------------------------------------------------------------\\"<<endl;
-    cout<<"|  Multiplier Generator GenMul                                            |"<<endl;
-    cout<<"|                                                                         |"<<endl;
-    cout<<"|  Copyright (c) 2019-2020 University of Bremen, Germany.                 |"<<endl;
-    cout<<"|  Copyright (c) 2020 Johannes Kepler University Linz, Austria.           |"<<endl;
-    cout<<"|                                                                         |"<<endl;
-    cout<<"|  You can find GenMul at: http://www.sca-verification.org/genmul         |"<<endl;
-    cout<<"|  Contact us at genmul@sca-verification.org                              |"<<endl;
-    cout<<"\\-------------------------------------------------------------------------/"<<endl;
-    cout<<endl;
-    cout<<"Enter the number indicating Partial Product Generator (PPG) architecture: "<<endl;
-    cout<<"1. Unsigned PPG"<<endl;
-    cout<<"2. Signed PPG"<<endl;
-    cout<<">> ";
-    cin>>firstStageString;
-    cout<<"*************************************************************************"<<endl<<flush;
-    if (firstStageString!="1" && firstStageString!="2")
-    {
-        cout<<"Wrong input!!!"<<endl;
-        return 0;
-    }
-    firstStage = stoi(firstStageString);
-
-    cout<<"Enter the number indicating Partial Product Accumulator (PPA) architecture: "<<endl;
-    cout<<"1. Array"<<endl;
-    cout<<"2. Wallace tree"<<endl;
-    cout<<"3. Dadda tree"<<endl;
-    cout<<"4. Counter-based Wallace tree"<<endl;
-    cout<<"5. Approximate Dadda tree (FV-LIDAC style)"<<endl;
-    cout<<">> ";
-    cin>>secondStageString;
-    cout<<"*************************************************************************"<<endl;
-    if (secondStageString!="1" && secondStageString!="2" && secondStageString!="3" && secondStageString!="4" && secondStageString!="5")
-    {
-        cout<<"Wrong input!!!"<<endl;
-        return 0;
-    }
-    secondStage = stoi(secondStageString);
-
-    //sayak: If the second stage is Approximate Dadda tree, 
-    // then we can optionally specify the approximation error level.
-    if (secondStage == 5)
-    {
-        cout << "Approximation error level for FV-LIDAC-style FA:" << endl;
-        cout << "0. Exact" << endl;
-        cout << "1. Low" << endl;
-        cout << "2. Medium" << endl;
-        cout << "3. High" << endl;
-        cout << ">> ";
-        cin >> approxErrorLevel;
-        if (cin.fail() || approxErrorLevel < 0 || approxErrorLevel > 3)
+        else if (argc != 6)
         {
-            cout << "Wrong input!!!" << endl;
-            return 0;
+            printUsage(argv[0]);
+            return 1;
         }
     }
 
-    //
-    if (secondStage == 5)
+    const std::string name = GenMulNameMaker(
+        in1Size, in2Size, firstStage, secondStage, thirdStage,
+        approxColumn, approxCout, approxSum);
+    const std::string finalCode = GenMul(
+        in1Size, in2Size, firstStage, secondStage, thirdStage,
+        approxColumn, approxCout, approxSum);
+
+    std::ofstream file(name);
+    if (!file)
     {
-        cout << "Approximation method for FV-LIDAC-style ADT:" << endl;
-        cout << "0. Exact (no approximation)" << endl;
-        cout << "1. Truncation only" << endl;
-        cout << "2. FA-substitution only" << endl;
-        cout << "3. Both (truncation + FA-substitution)" << endl;
-        cout << ">> ";
-        cin >> approxMethod;
-        if (cin.fail() || approxMethod < 0 || approxMethod > 3)
-        {
-            cout << "Wrong input!!!" << endl;
-            return 0;
-        }
+        std::cerr << "Could not open output file: " << name << std::endl;
+        return 1;
     }
-
-    cout<<"Enter the number indicating Final Stage Adder (FSA) architecture: "<<endl;
-    cout<<"1. Ripple Carry Adder"<<endl;
-    cout<<"2. Carry Look-Ahead Adder"<<endl;
-    cout<<"3. Lander-Fischer Adder"<<endl;
-    cout<<"4. Kogge-Stone Adder"<<endl;
-    cout<<"5. Brent-Kung Adder"<<endl;
-    cout<<"6. Carry Skip Adder"<<endl;
-    cout<<"7. Serial Prefix Adder"<<endl;
-    cout<<">> ";
-    cin>>thirdStageString;
-    cout<<"*************************************************************************"<<endl;
-    if (thirdStageString!="1" && thirdStageString!="2" && thirdStageString!="3" && thirdStageString!="4" && thirdStageString!="5" && thirdStageString!="6" && thirdStageString!="7")
-    {
-        cout<<"Wrong input!!!"<<endl;
-        return 0;
-    }
-    thirdStage = stoi(thirdStageString);
-
-    //int in1Size, in2Size;
-    cout<<"First input size: ";
-    cin >> in1Size;
-    if (cin.fail() || in1Size<=0)
-    {
-        cout<<"Wrong input!!!"<<endl;
-        return 0;
-    }
-
-    cout<<"Second input size: ";
-    cin >> in2Size;
-    if (cin.fail() || in2Size<=0)
-    {
-        cout<<"Wrong input!!!"<<endl;
-        return 0;
-    }
-    //cout<<"*************************************************************************"<<endl;
-    //string fileAddress = "Multiplier.v";
-    //cout<<"Output file: ";
-    //cin >> fileAddress;
-
-  } // end of cmdline == false
-
-    string name = GenMulNameMaker(in1Size, in2Size, firstStage, secondStage, thirdStage, approxErrorLevel, approxMethod);
-    cout<<"*************************************************************************"<<endl;
-    cout<<"Output file: "<<name<<endl;
-
-    string finalCode = GenMul(in1Size, in2Size, firstStage, secondStage, thirdStage, approxErrorLevel, approxMethod);
-
-    ofstream file;
-    file.open(name);
 
     file << finalCode;
+    if (!file)
+    {
+        std::cerr << "Could not write output file: " << name << std::endl;
+        return 1;
+    }
 
-    //moduleConnector(10, 5, "10bit-SPS-WL-CK.v");
-    //ofstream file("48bit.v");
-    //CarrySkipAdderVariable(48, 48, file);
+    std::cout << "*************************************************************************\n"
+              << "Output file: " << name << std::endl;
+    return 0;
 }

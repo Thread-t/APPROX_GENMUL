@@ -15,5 +15,7 @@
 #include "version.hppgen"
 
 
-string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int thirdStage, int approxErrorLevel = 1, int approxMethod = 3); // Connect three stages to create a multiplier
-string nameMaker (int nIn1, int nIn2, int firstStage, int secondStage, int thirdStage, int approxErrorLevel = 1, int approxMethod = 3); //create name for the final Verilog file
+string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int thirdStage,
+                       int approxColumn = 0, int approxCout = 23, int approxSum = 105); // Connect three stages to create a multiplier
+string nameMaker(int nIn1, int nIn2, int firstStage, int secondStage, int thirdStage,
+                 int approxColumn = 0, int approxCout = 23, int approxSum = 105); // create name for the final Verilog file

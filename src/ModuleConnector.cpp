@@ -7,13 +7,18 @@
 
 int PartialProduct::count = 0;
 
-string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int thirdStage, int approxErrorLevel, int approxMethod) // Connect three stages to create a multiplier
+string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int thirdStage, int approxColumn, int approxCout, int approxSum) // Connect three stages to create a multiplier
 {
     assert(firstStage >= 1 && firstStage <= 2 && "The assigned number for the first stage should be 1 or 2!");
     assert(secondStage >= 1 && secondStage <= 5 && "The assigned number for the second stage should be 1, 2, 3, 4, or 5!");
     assert(thirdStage >= 1 && thirdStage <= 7 && "The assigned number for the third stage should be 1, 2, 3, 4, 5, 6, or 7!");
-    assert(approxErrorLevel >= 0 && approxErrorLevel <= 3 && "Approximation level must be 0, 1, 2, or 3");
-    assert(approxMethod >= 0 && approxMethod <= 3 && "Approximation method must be 0-3");
+    if (secondStage == 5)
+    {
+        assert(approxColumn >= 0 && approxColumn <= nIn1 + nIn2 - 2 &&
+               "Approximation column is outside the multiplier's Dadda columns");
+        assert(approxCout >= 0 && approxCout <= 255 && "Approximation carry mask must be 0 to 255");
+        assert(approxSum >= 0 && approxSum <= 255 && "Approximation sum mask must be 0 to 255");
+    }
 
     string firstStageName, secondStageName, thirdStageName;
 
@@ -30,14 +35,11 @@ string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int 
     GenerateConstantOne(file);
     GenerateCounter(file);
 
-    // Template-based approximate full-adder generation.
-    // Only wire in approximate FAs when the Approximate Dadda tree is actually
-    // selected AND the chosen method uses FA substitution (2 = FA-sub only,
-    // 3 = truncation + FA-sub). Otherwise clear any stale config from a previous
-    // GenMul() call in this process, so exact/truncation-only builds stay exact.
-    if (secondStage == 5 && (approxMethod == 2 || approxMethod == 3))
+    // The approximate cell is used only by full adders in one selected Dadda column.
+    if (secondStage == 5)
     {
-        ApproxConfig::configureTemplateApproxFA(approxErrorLevel);
+        ApproxConfig::configureApproxFA(
+            approxColumn, approxCout, approxSum);
         GenerateApproxModules(file);
     }
     else
@@ -86,10 +88,14 @@ string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int 
         secondStageName = "CWT";
         break;
     case 5:
-        PPAInfo = ApproxDadda(PPGInfo, nIn1, nIn2, file, approxMethod);
+        PPAInfo = ApproxDadda(PPGInfo, nIn1, nIn2, file, 2);
         secondStageName = "ADT";
         break;
     }
+
+    // Do not let the configuration leak into the final-stage adder.
+    ApproxConfig::clear();
+
     //cout << "Partial Product accumulation: DONE" << endl;
     PartialProduct::SetCountZero();
     /////////////////////////////////////////////////////
@@ -156,12 +162,18 @@ string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int 
     return file;
 }
 
-string nameMaker (int nIn1, int nIn2, int firstStage, int secondStage, int thirdStage, int approxErrorLevel, int approxMethod) //create name for the final Verilog file
+string nameMaker (int nIn1, int nIn2, int firstStage, int secondStage, int thirdStage, int approxColumn, int approxCout, int approxSum) //create name for the final Verilog file
 {
     assert(firstStage >= 1 && firstStage <= 2 && "The assigned number for the first stage should be 1 or 2!");
     assert(secondStage >= 1 && secondStage <= 5 && "The assigned number for the second stage should be 1, 2, 3, 4, or 5!");
     assert(thirdStage >= 1 && thirdStage <= 7 && "The assigned number for the third stage should be 1, 2, 3, 4, 5, 6, or 7!");
-    assert(approxErrorLevel >= 0 && approxErrorLevel <= 3 && "Approximation level must be 0, 1, 2, or 3");
+    if (secondStage == 5)
+    {
+        assert(approxColumn >= 0 && approxColumn <= nIn1 + nIn2 - 2 &&
+               "Approximation column is outside the multiplier's Dadda columns");
+        assert(approxCout >= 0 && approxCout <= 255 && "Approximation carry mask must be 0 to 255");
+        assert(approxSum >= 0 && approxSum <= 255 && "Approximation sum mask must be 0 to 255");
+    }
     string firstStageName, secondStageName, thirdStageName;
 
     string name;
@@ -222,7 +234,8 @@ string nameMaker (int nIn1, int nIn2, int firstStage, int secondStage, int third
 
     if (secondStage == 5)
         name = to_string(nIn1) + "_" + to_string(nIn2) + "_" + firstStageName + "_" + secondStageName + "_" + thirdStageName
-             + "_E" + to_string(approxErrorLevel) + "_M" + to_string(approxMethod) + "_GenMul.v";
+             + "_COL" + to_string(approxColumn) + "_C" + to_string(approxCout)
+             + "_S" + to_string(approxSum) + "_GenMul.v";
     else
         name = to_string(nIn1) + "_" + to_string(nIn2) + "_" + firstStageName + "_" + secondStageName + "_" + thirdStageName + "_GenMul.v";
     return name;

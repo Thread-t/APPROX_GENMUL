@@ -213,13 +213,10 @@ vector<int> ApproxDadda(map<int, int> Ins, int nIn1, int nIn2, string &file, int
     // {
     //     approxIns[0] = 1;
     // }
-    ApproxConfig::setLastTruncateBits(truncateBits);
-
     return DaddaCore(Ins, nIn1, nIn2, file, "ADT", truncateBits);
 }
 
 vector<int> Dadda(map<int, int> Ins, int nIn1, int nIn2, string &file) // Get two integer numbers as input sizes and create the Wallace Tree PPA
 {
-    ApproxConfig::setLastTruncateBits(0);
     return DaddaCore(Ins, nIn1, nIn2, file, "DT", 0);
 }
