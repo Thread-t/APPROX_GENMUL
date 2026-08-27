@@ -93,9 +93,6 @@ string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int 
         break;
     }
 
-    // Do not let the configuration leak into the final-stage adder.
-    ApproxConfig::clear();
-
     //cout << "Partial Product accumulation: DONE" << endl;
     PartialProduct::SetCountZero();
     /////////////////////////////////////////////////////
