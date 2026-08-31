@@ -145,17 +145,17 @@ string HalfAdder::returnVerilogCode(map<int, string>& signalMap, int ID)
     return out;
 }
 
-//Sayak: The following function generates a unique module 
+// Sayak: The following function generates a unique module 
 // name based on the truth table of the approximate full adder. 
 // It encodes the truth table into an integer ID and returns a 
 // string with the format "approx_fa_<id>".
 string FullAdder::returnVerilogCode(map<int, string>& signalMap, int ID)
 {
-    // sayak: allow approximate module substitution based on weight
+    // sayak: allow approximate module substitution in place of FULL ADDER based on weight
     int weight = this->inputs[0].returnWeight();
     string approx = ApproxConfig::getModuleForWeight(weight);
     string moduleName = approx.empty() ? "FullAdder" : approx;
-    // Sayak: Code ends here sorry!!!
+    // Sayak: Generate the Verilog code for the full adder or approximate module with the given ID and signal mapping.
     string out = "  " + moduleName + " U" + to_string(ID) + " (" + signalMap[this->inputs[0].returnNo()] + ", " + signalMap[this->inputs[1].returnNo()] + ", " + signalMap[this->inputs[2].returnNo()] + ", " + signalMap[this->outputs[0].returnNo()] + ", " + signalMap[this->outputs[1].returnNo()] + ");";
     return out;
 }

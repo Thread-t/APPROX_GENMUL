@@ -23,6 +23,9 @@ void PartialProduct::printInfo()
     cout << "Weight: " << this->weight << endl;
 }
 ///////////////////////////////////////////////////
+// Sayak: The following function generates an array of partial products corresponding 
+// to the binary representation of an integer number. Each bit in the integer corresponds
+// to a partial product with a weight equal to its position in the binary representation.
 vector<PartialProduct> PartialProduct::createPartialArray(int arrayNumber)
 {
     vector<PartialProduct> out;

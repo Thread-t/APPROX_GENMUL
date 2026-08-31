@@ -44,6 +44,7 @@ namespace ApproxConfig {
         return tt;
     }
 
+    // Sayak: Configure the approximate full adder for a specific Dadda column with given carry and sum masks.
     void configureApproxFA(int column, int coutMask, int sumMask)
     {
         clear();

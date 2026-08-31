@@ -9,17 +9,22 @@ static vector<int> DaddaCore(map<int, int> Ins, int nIn1, int nIn2, string &file
     UNUSED(nIn2);
 
     int inputNumber = 0;
-    vector<PartialProduct> partialIn;
+    vector<PartialProduct> partialIn; //to store the all partial products
+    
     for (auto i = 0u; i < Ins.size(); i++)
     {
         for (int j = 0; j < Ins[i]; j++)
         {
             PartialProduct p(i);
+            // Sayak: The input partial products are generated based on the weights specified in the Ins map.
             partialIn.push_back(p);
             inputNumber++;
         }
     }
 
+    // Sayak: If truncation is enabled (truncateBits > 0), we filter out 
+    //partial products with weights less than truncateBits and adjust the 
+    // weights of the remaining partial products accordingly.
     if (truncateBits > 0)
     {
         vector<PartialProduct> truncatedIn;
@@ -197,22 +202,6 @@ vector<int> ApproxDadda(map<int, int> Ins, int nIn1, int nIn2, string &file, int
         }
     }
 
-    // map<int, int> approxIns;
-    // // The input partial products are adjusted based on the truncation.
-    // for (auto const &it : Ins)
-    // {
-    //     if (truncateBits > 0 && it.first < truncateBits)
-    //     {
-    //         continue;
-    //     }
-    //     int adjustedWeight = (truncateBits > 0) ? (it.first - truncateBits) : it.first;
-    //     approxIns[adjustedWeight] += it.second;
-    // }
-
-    // if (approxIns.empty())
-    // {
-    //     approxIns[0] = 1;
-    // }
     return DaddaCore(Ins, nIn1, nIn2, file, "ADT", truncateBits);
 }
 

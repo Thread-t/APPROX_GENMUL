@@ -8,6 +8,8 @@
 
 namespace {
 
+
+// Parses a string as an integer. Returns true if the string is a valid integer, false otherwise.
 bool parseInteger(const char *text, int &value)
 {
     try
@@ -31,6 +33,7 @@ bool parseInteger(const char *text, int &value)
     }
 }
 
+// Parses a command line argument as an integer and checks if it is within the specified range.
 bool parseArgument(const char *text, const std::string &name, int minimum, int maximum, int &value)
 {
     if (!parseInteger(text, value) || value < minimum || value > maximum)
@@ -157,6 +160,7 @@ int main(int argc, char **argv)
             return 1;
         }
 
+        // Parse command line arguments.
         if (!parseArgument(argv[1], "PPG", 1, 2, firstStage) ||
             !parseArgument(argv[2], "PPA", 1, 5, secondStage) ||
             !parseArgument(argv[3], "FSA", 1, 7, thirdStage) ||
@@ -174,6 +178,7 @@ int main(int argc, char **argv)
                 return 1;
             }
 
+            // Parse additional arguments if it is approximate Dadda.
             const int maximumColumn = in1Size + in2Size - 2;
             if (!parseArgument(argv[6], "Dadda column", 0, maximumColumn, approxColumn) ||
                 !parseArgument(argv[7], "carry mask", 0, 255, approxCout) ||
@@ -182,6 +187,7 @@ int main(int argc, char **argv)
                 return 1;
             }
         }
+        // If it is not approximate Dadda, there should be no additional arguments.
         else if (argc != 6)
         {
             printUsage(argv[0]);
