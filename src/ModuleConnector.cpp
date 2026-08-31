@@ -7,7 +7,7 @@
 
 int PartialProduct::count = 0;
 
-string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int thirdStage, int approxColumn, int approxCout, int approxSum) // Connect three stages to create a multiplier
+string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int thirdStage, int approxColumn, int approxCout, int approxSum, int approxMethod) // Connect three stages to create a multiplier
 {
     assert(firstStage >= 1 && firstStage <= 2 && "The assigned number for the first stage should be 1 or 2!");
     assert(secondStage >= 1 && secondStage <= 5 && "The assigned number for the second stage should be 1, 2, 3, 4, or 5!");
@@ -18,6 +18,7 @@ string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int 
                "Approximation column is outside the multiplier's Dadda columns");
         assert(approxCout >= 0 && approxCout <= 255 && "Approximation carry mask must be 0 to 255");
         assert(approxSum >= 0 && approxSum <= 255 && "Approximation sum mask must be 0 to 255");
+        assert(approxMethod >= 0 && approxMethod <= 3 && "Approximation method must be 0 to 3");
     }
 
     string firstStageName, secondStageName, thirdStageName;
@@ -88,7 +89,7 @@ string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int 
         secondStageName = "CWT";
         break;
     case 5:
-        PPAInfo = ApproxDadda(PPGInfo, nIn1, nIn2, file, 2);
+        PPAInfo = ApproxDadda(PPGInfo, nIn1, nIn2, file, approxMethod);
         secondStageName = "ADT";
         break;
     }
@@ -159,7 +160,7 @@ string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int 
     return file;
 }
 
-string nameMaker (int nIn1, int nIn2, int firstStage, int secondStage, int thirdStage, int approxColumn, int approxCout, int approxSum) //create name for the final Verilog file
+string nameMaker (int nIn1, int nIn2, int firstStage, int secondStage, int thirdStage, int approxColumn, int approxCout, int approxSum, int approxMethod) //create name for the final Verilog file
 {
     assert(firstStage >= 1 && firstStage <= 2 && "The assigned number for the first stage should be 1 or 2!");
     assert(secondStage >= 1 && secondStage <= 5 && "The assigned number for the second stage should be 1, 2, 3, 4, or 5!");
@@ -170,6 +171,7 @@ string nameMaker (int nIn1, int nIn2, int firstStage, int secondStage, int third
                "Approximation column is outside the multiplier's Dadda columns");
         assert(approxCout >= 0 && approxCout <= 255 && "Approximation carry mask must be 0 to 255");
         assert(approxSum >= 0 && approxSum <= 255 && "Approximation sum mask must be 0 to 255");
+        assert(approxMethod >= 0 && approxMethod <= 3 && "Approximation method must be 0 to 3");
     }
     string firstStageName, secondStageName, thirdStageName;
 
@@ -231,6 +233,7 @@ string nameMaker (int nIn1, int nIn2, int firstStage, int secondStage, int third
 
     if (secondStage == 5)
         name = to_string(nIn1) + "_" + to_string(nIn2) + "_" + firstStageName + "_" + secondStageName + "_" + thirdStageName
+             + "_M" + to_string(approxMethod)
              + "_COL" + to_string(approxColumn) + "_C" + to_string(approxCout)
              + "_S" + to_string(approxSum) + "_GenMul.v";
     else

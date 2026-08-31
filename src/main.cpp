@@ -64,11 +64,12 @@ void printUsage(const char *program)
         << "Usage:\n"
         << "  " << program << " <ppg> <ppa> <fsa> <in1-bits> <in2-bits>\n"
         << "  " << program << " <ppg> 5 <fsa> <in1-bits> <in2-bits>"
-        << " <dadda-column> <carry-mask> <sum-mask>\n\n"
+        << " <dadda-column> <carry-mask> <sum-mask> [approx-method]\n\n"
         << "ppg: 1=unsigned, 2=signed\n"
         << "ppa: 1=array, 2=Wallace, 3=Dadda, 4=counter-Wallace, 5=approximate Dadda\n"
         << "fsa: 1=ripple, 2=CLA, 3=Lander-Fischer, 4=Kogge-Stone,"
         << " 5=Brent-Kung, 6=carry-skip, 7=serial-prefix\n"
+        << "approx-method: 0=exact, 1=truncation only, 2=FA substitution only, 3=both\n"
         << "carry-mask and sum-mask must be decimal values from 0 to 255.\n";
 }
 
@@ -101,6 +102,7 @@ int main(int argc, char **argv)
     int approxColumn = 0;
     int approxCout = 23;
     int approxSum = 105;
+    int approxMethod = 2;
 
     if (argc == 1)
     {
@@ -146,7 +148,8 @@ int main(int argc, char **argv)
 
             if (!readValue("Dadda column to approximate: ", 0, maximumColumn, approxColumn) ||
                 !readValue("Carry truth-table mask (0..255): ", 0, 255, approxCout) ||
-                !readValue("Sum truth-table mask (0..255): ", 0, 255, approxSum))
+                !readValue("Sum truth-table mask (0..255): ", 0, 255, approxSum) ||
+                !readValue("Approximation method (0=exact,1=truncation,2=FA-sub,3=both): ", 0, 3, approxMethod))
             {
                 return 1;
             }
@@ -154,7 +157,7 @@ int main(int argc, char **argv)
     }
     else
     {
-        if (argc != 6 && argc != 9)
+        if (argc != 6 && argc != 9 && argc != 10)
         {
             printUsage(argv[0]);
             return 1;
@@ -172,7 +175,7 @@ int main(int argc, char **argv)
 
         if (secondStage == 5)
         {
-            if (argc != 9)
+            if (argc != 9 && argc != 10)
             {
                 printUsage(argv[0]);
                 return 1;
@@ -183,6 +186,11 @@ int main(int argc, char **argv)
             if (!parseArgument(argv[6], "Dadda column", 0, maximumColumn, approxColumn) ||
                 !parseArgument(argv[7], "carry mask", 0, 255, approxCout) ||
                 !parseArgument(argv[8], "sum mask", 0, 255, approxSum))
+            {
+                return 1;
+            }
+
+            if (argc == 10 && !parseArgument(argv[9], "approximation method", 0, 3, approxMethod))
             {
                 return 1;
             }
@@ -197,10 +205,10 @@ int main(int argc, char **argv)
 
     const std::string name = GenMulNameMaker(
         in1Size, in2Size, firstStage, secondStage, thirdStage,
-        approxColumn, approxCout, approxSum);
+        approxColumn, approxCout, approxSum, approxMethod);
     const std::string finalCode = GenMul(
         in1Size, in2Size, firstStage, secondStage, thirdStage,
-        approxColumn, approxCout, approxSum);
+        approxColumn, approxCout, approxSum, approxMethod);
 
     std::ofstream file(name);
     if (!file)

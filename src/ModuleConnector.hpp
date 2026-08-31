@@ -16,6 +16,6 @@
 
 
 string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int thirdStage,
-                       int approxColumn = 0, int approxCout = 23, int approxSum = 105); // Connect three stages to create a multiplier
+                       int approxColumn = 0, int approxCout = 23, int approxSum = 105, int approxMethod = 2); // Connect three stages to create a multiplier
 string nameMaker(int nIn1, int nIn2, int firstStage, int secondStage, int thirdStage,
-                 int approxColumn = 0, int approxCout = 23, int approxSum = 105); // create name for the final Verilog file
+                 int approxColumn = 0, int approxCout = 23, int approxSum = 105, int approxMethod = 2); // create name for the final Verilog file
