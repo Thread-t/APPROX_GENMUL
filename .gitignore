@@ -54,3 +54,6 @@ dkms.conf
 # debug information files
 *.dwo
 src/.DS_Store
+src/key
+src/key2
+src/version.hppgen
