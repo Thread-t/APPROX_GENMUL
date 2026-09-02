@@ -1,6 +1,7 @@
 #include "RippleCarryAdder.hpp"
+#include "ApproxConfig.hpp"
 
-int CreateRippleCarryAdder(int nIn1, int nIn2, string &file) // Get two integer numbers as input sizes and create the ripple carry adder
+int CreateRippleCarryAdder(int nIn1, int nIn2, string &file, int approxColumn) // Get two integer numbers as input sizes and create the ripple carry adder
 {
     assert(nIn1 > 0 && nIn2 > 0 && "Lenght of input bits should be bigger than zero");
 
@@ -21,15 +22,26 @@ int CreateRippleCarryAdder(int nIn1, int nIn2, string &file) // Get two integer 
 
     while (!endFlag)
     {
+        const bool useApproxFA = approxColumn >= 0 && curentWeight < approxColumn &&
+                                 !ApproxConfig::getModuleForWeight(curentWeight).empty();
         if (LevelizedPartials[curentWeight].size() == 2) //if there are two partial products with the same weights
         {
-            comp = new HalfAdder(LevelizedPartials[curentWeight]);
+            if (useApproxFA)
+            {
+                vector<PartialProduct> inputs = LevelizedPartials[curentWeight];
+                inputs.push_back(PartialProduct(curentWeight));
+                comp = new FullAdder(inputs, true, true);
+            }
+            else
+            {
+                comp = new HalfAdder(LevelizedPartials[curentWeight]);
+            }
             LevelizedPartials[curentWeight].clear();
             comp->SetOutputs();
         }
         else //if there are three partial products with the same weights
         {
-            comp = new FullAdder(LevelizedPartials[curentWeight]);
+            comp = new FullAdder(LevelizedPartials[curentWeight], useApproxFA);
             LevelizedPartials[curentWeight].clear();
             comp->SetOutputs();
         }

@@ -56,7 +56,7 @@ namespace ApproxConfig {
 
         // Approximate every Dadda column below the requested limit. This matches the intended
         // behavior where the lower columns are more error-tolerant while higher columns stay exact.
-        for (int column = 0; column < approxColumn; ++column)
+        for (int column = 0; column <= approxColumn; ++column)
         {
             setApproxForWeight(column, tt);
         }

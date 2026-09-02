@@ -81,8 +81,11 @@ static vector<int> DaddaCore(map<int, int> Ins, int nIn1, int nIn2, string &file
     }
 
     vector<PartialProduct> GeneratedAtLevel;  //all partial products generated a level of wallce tree computations
+    int stage = 1;
     for (auto n = 0u; n < D.size(); n++)
     {
+        // Sayak: The following loop implements the Dadda reduction for each column of the partial product tree.
+        // The reduction is performed until the height of each column is less than or equal to the corresponding D[n] value
         for (auto i = 0u; i < LevelizedPartials.size(); i++)
         {
             while (1)
@@ -93,10 +96,19 @@ static vector<int> DaddaCore(map<int, int> Ins, int nIn1, int nIn2, string &file
                 }
                 else if (height[i] == D[n] + 1)
                 {
-                    // Keep half-adders exact even inside the approximated lower columns.
                     height[i]--;
                     height[i + 1]++;
-                    comp = new HalfAdder({LevelizedPartials[i][0], LevelizedPartials[i][1]});
+                    const bool useApproxFA = approxColumn >= 0 && static_cast<int>(i) <= approxColumn &&
+                                             !ApproxConfig::getModuleForWeight(i).empty();
+                    if (approxColumn >= 0)
+                    {
+                        comp = new FullAdder({LevelizedPartials[i][0], LevelizedPartials[i][1],
+                                              PartialProduct(i)}, useApproxFA, true);
+                    }
+                    else
+                    {
+                        comp = new HalfAdder({LevelizedPartials[i][0], LevelizedPartials[i][1]});
+                    }
                     comp->SetOutputs();
                     LevelizedPartials[i].erase(LevelizedPartials[i].begin(), LevelizedPartials[i].begin() + 2);
                     compList.push_back(comp);
@@ -106,13 +118,14 @@ static vector<int> DaddaCore(map<int, int> Ins, int nIn1, int nIn2, string &file
                 }
                 else
                 {
-                    const bool approxThisColumn = (approxColumn >= 0 && i < approxColumn);
-                    // Only 3:2 reduction nodes are approximated; 2:2 reduction nodes (HalfAdder) stay exact.
-                    // All columns at or above approxColumn remain fully exact.
+                    // The reference library approximates only the low Dadda columns; columns at/above
+                    // approxColumn remain exactly reduced using standard FullAdders.
+                    const bool approxThisColumn = (approxColumn >= 0 && static_cast<int>(i) <= approxColumn);
+                    const bool useApproxFA = approxThisColumn && !ApproxConfig::getModuleForWeight(i).empty();
+
                     height[i] -= 2;
                     height[i + 1]++;
 
-                    const bool useApproxFA = approxThisColumn && !ApproxConfig::getModuleForWeight(i).empty();
                     comp = new FullAdder({LevelizedPartials[i][0], LevelizedPartials[i][1], LevelizedPartials[i][2]}, useApproxFA);
                     comp->SetOutputs();
                     LevelizedPartials[i].erase(LevelizedPartials[i].begin(), LevelizedPartials[i].begin() + 3);
@@ -124,6 +137,7 @@ static vector<int> DaddaCore(map<int, int> Ins, int nIn1, int nIn2, string &file
         }
         PartialProduct::LevelizePartials(LevelizedPartials, GeneratedAtLevel);
         GeneratedAtLevel.clear();
+        stage++;
     }
 
     //Some of the input partial product needs to go directely to output, so we connect them with a = b assignment!

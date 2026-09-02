@@ -163,7 +163,8 @@ string FullAdder::returnVerilogCode(map<int, string>& signalMap, int ID)
             moduleName = approx;
     }
 
-    string out = "  " + moduleName + " U" + to_string(ID) + " (" + signalMap[this->inputs[0].returnNo()] + ", " + signalMap[this->inputs[1].returnNo()] + ", " + signalMap[this->inputs[2].returnNo()] + ", " + signalMap[this->outputs[0].returnNo()] + ", " + signalMap[this->outputs[1].returnNo()] + ");";
+    string thirdInput = this->constantThirdInput ? "1'b0" : signalMap[this->inputs[2].returnNo()];
+    string out = "  " + moduleName + " U" + to_string(ID) + " (" + signalMap[this->inputs[0].returnNo()] + ", " + signalMap[this->inputs[1].returnNo()] + ", " + thirdInput + ", " + signalMap[this->outputs[0].returnNo()] + ", " + signalMap[this->outputs[1].returnNo()] + ");";
     return out;
 }
 

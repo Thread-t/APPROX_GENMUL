@@ -39,9 +39,11 @@ class FullAdder : public Component
 {
   private:
     bool approximate = false;
+    bool constantThirdInput = false;
 
   public:
-    FullAdder(vector<PartialProduct> ins, bool approx = false): Component(ins), approximate(approx) {}
+    FullAdder(vector<PartialProduct> ins, bool approx = false, bool constantThird = false):
+      Component(ins), approximate(approx), constantThirdInput(constantThird) {}
     void SetApproximate(bool approx) { this->approximate = approx; }
     string returnVerilogCode (map<int, string>& signalMap, int ID);
 };
