@@ -19,9 +19,10 @@ namespace ApproxConfig {
     // returns map moduleName -> truthTable
     map<string, vector<int>> getModulesMap();
 
-    // Sayak: Mask based configuration for approximate full adder ckt
+    // Sayak: Mask based configuration for approximate full adder ckt.
+    // The approximation is applied to all lower Dadda columns from 0 up to approxColumn-1.
     vector<int> truthTableFromMasks(int coutMask, int sumMask);
-    void configureApproxFA(int column, int coutMask, int sumMask);
+    void configureApproxFA(int approxColumn, int coutMask, int sumMask);
 
 }
 

@@ -46,6 +46,7 @@ bool parseArgument(const char *text, const std::string &name, int minimum, int m
     return true;
 }
 
+// Reads an integer value from standard input and checks if it is within the specified range.
 bool readValue(const std::string &prompt, int minimum, int maximum, int &value)
 {
     std::cout << prompt;
@@ -68,7 +69,7 @@ void printUsage(const char *program)
         << "ppg: 1=unsigned, 2=signed\n"
         << "ppa: 1=array, 2=Wallace, 3=Dadda, 4=counter-Wallace, 5=approximate Dadda\n"
         << "fsa: 1=ripple, 2=CLA, 3=Lander-Fischer, 4=Kogge-Stone,"
-        << " 5=Brent-Kung, 6=carry-skip, 7=serial-prefix\n"
+        << "5=Brent-Kung, 6=carry-skip, 7=serial-prefix\n"
         << "approx-method: 0=exact, 1=truncation only, 2=FA substitution only, 3=both\n"
         << "carry-mask and sum-mask must be decimal values from 0 to 255.\n";
 }
@@ -108,12 +109,14 @@ int main(int argc, char **argv)
     {
         printBanner();
 
+        // Prompt the user for input values.
         std::cout << "Partial Product Generator (PPG):\n"
                   << "1. Unsigned PPG\n"
                   << "2. Signed PPG\n";
         if (!readValue(">> ", 1, 2, firstStage))
             return 1;
 
+        // Prompt the user for the PPA selection.
         std::cout << "\nPartial Product Accumulator (PPA):\n"
                   << "1. Array\n"
                   << "2. Wallace tree\n"
@@ -123,6 +126,7 @@ int main(int argc, char **argv)
         if (!readValue(">> ", 1, 5, secondStage))
             return 1;
 
+        // Prompt the user for the FSA selection.
         std::cout << "\nFinal Stage Adder (FSA):\n"
                   << "1. Ripple Carry Adder\n"
                   << "2. Carry Look-Ahead Adder\n"
@@ -133,13 +137,14 @@ int main(int argc, char **argv)
                   << "7. Serial Prefix Adder\n";
         if (!readValue(">> ", 1, 7, thirdStage))
             return 1;
-
+        // Prompt the user for the input sizes
         if (!readValue("First input size: ", 1, std::numeric_limits<int>::max(), in1Size) ||
             !readValue("Second input size: ", 1, std::numeric_limits<int>::max(), in2Size))
         {
             return 1;
         }
 
+        // If approximate Dadda is selected, prompt for additional parameters.
         if (secondStage == 5)
         {
             const int maximumColumn = in1Size + in2Size - 2;
@@ -157,6 +162,7 @@ int main(int argc, char **argv)
     }
     else
     {
+        // Parse command line arguments.
         if (argc != 6 && argc != 9 && argc != 10)
         {
             printUsage(argv[0]);
@@ -173,8 +179,10 @@ int main(int argc, char **argv)
             return 1;
         }
 
+        // select approx Dadda
         if (secondStage == 5)
         {
+            //check additional arguments for approximate Dadda
             if (argc != 9 && argc != 10)
             {
                 printUsage(argv[0]);
@@ -183,6 +191,8 @@ int main(int argc, char **argv)
 
             // Parse additional arguments if it is approximate Dadda.
             const int maximumColumn = in1Size + in2Size - 2;
+
+            // Parse the Dadda column, carry mask, and sum mask from command line arguments.
             if (!parseArgument(argv[6], "Dadda column", 0, maximumColumn, approxColumn) ||
                 !parseArgument(argv[7], "carry mask", 0, 255, approxCout) ||
                 !parseArgument(argv[8], "sum mask", 0, 255, approxSum))
@@ -203,6 +213,7 @@ int main(int argc, char **argv)
         }
     }
 
+    // Generate the multiplier Verilog code and write it to a file.
     const std::string name = GenMulNameMaker(
         in1Size, in2Size, firstStage, secondStage, thirdStage,
         approxColumn, approxCout, approxSum, approxMethod);
@@ -218,6 +229,9 @@ int main(int argc, char **argv)
     }
 
     file << finalCode;
+    //moduleConnector(10, 5, "10bit-SPS-WL-CK.v");
+    //ofstream file("48bit.v");
+    //CarrySkipAdderVariable(48, 48, file);
     if (!file)
     {
         std::cerr << "Could not write output file: " << name << std::endl;

@@ -37,8 +37,12 @@ class HalfAdder : public Component
 // class FullAdder is a child for Component
 class FullAdder : public Component
 {
+  private:
+    bool approximate = false;
+
   public:
-    FullAdder(vector<PartialProduct> ins): Component(ins) {}
+    FullAdder(vector<PartialProduct> ins, bool approx = false): Component(ins), approximate(approx) {}
+    void SetApproximate(bool approx) { this->approximate = approx; }
     string returnVerilogCode (map<int, string>& signalMap, int ID);
 };
 

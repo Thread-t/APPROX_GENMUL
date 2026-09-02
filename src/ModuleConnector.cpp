@@ -89,7 +89,7 @@ string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int 
         secondStageName = "CWT";
         break;
     case 5:
-        PPAInfo = ApproxDadda(PPGInfo, nIn1, nIn2, file, approxMethod);
+        PPAInfo = ApproxDadda(PPGInfo, nIn1, nIn2, file, approxColumn, approxMethod);
         secondStageName = "ADT";
         break;
     }

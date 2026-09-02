@@ -44,17 +44,22 @@ namespace ApproxConfig {
         return tt;
     }
 
-    // Sayak: Configure the approximate full adder for a specific Dadda column with given carry and sum masks.
-    void configureApproxFA(int column, int coutMask, int sumMask)
+    // Sayak: Configure the approximate full adder for all Dadda columns below a given limit.
+    // Only the lower columns [0 .. approxColumn-1] are approximated; all columns >= approxColumn
+    // remain exact. The approximation applies only to 3:2 reduction stages (FullAdder), since
+    // HalfAdder uses a different code path and remains exact.
+    void configureApproxFA(int approxColumn, int coutMask, int sumMask)
     {
         clear();
 
         vector<int> tt = truthTableFromMasks(coutMask, sumMask);
 
-        // Replace full adders in one selected Dadda column only.
-        // FullAdder::returnVerilogCode() applies this module in every
-        // reduction stage that contains this column.
-        setApproxForWeight(column, tt);
+        // Approximate every Dadda column below the requested limit. This matches the intended
+        // behavior where the lower columns are more error-tolerant while higher columns stay exact.
+        for (int column = 0; column < approxColumn; ++column)
+        {
+            setApproxForWeight(column, tt);
+        }
     }
     
     // Set the approximate full-adder truth table for a given weight
