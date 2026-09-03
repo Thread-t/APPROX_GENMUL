@@ -45,9 +45,7 @@ namespace ApproxConfig {
     }
 
     // Sayak: Configure the approximate full adder for all Dadda columns below a given limit.
-    // Only the lower columns [0 .. approxColumn-1] are approximated; all columns >= approxColumn
-    // remain exact. The approximation applies only to 3:2 reduction stages (FullAdder), since
-    // HalfAdder uses a different code path and remains exact.
+    // Only the lower columns [0 .. approxColumn-1] are approximated; all columns >= approxColumn are exact.
     void configureApproxFA(int approxColumn, int coutMask, int sumMask)
     {
         clear();
@@ -67,11 +65,15 @@ namespace ApproxConfig {
     {
         if (truthTable.size() != 8)
             return string("");
+
+        // Generate a unique module name based on the truth table
         string name = makeModuleName(truthTable);
 
         // store module if not present
         if (modules.find(name) == modules.end())
             modules[name] = truthTable;
+
+        // store mapping from weight to module name
         weightToModule[weight] = name;
         return name;
     }
