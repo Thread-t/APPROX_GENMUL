@@ -90,20 +90,30 @@ static vector<int> DaddaCore(map<int, int> Ins, int nIn1, int nIn2, string &file
         {
             while (1)
             {
+                // The following logic checks the height of the current column and 
+                // applies the appropriate reduction operation (HalfAdder or FullAdder) 
+                // based on the height and the Dadda threshold.
                 if (height[i] <= D[n])
                 {
                     break;
                 }
                 else if (height[i] == D[n] + 1)
                 {
+                    // If the height is exactly one more than the target D[n], 
+                    // we can use a half-adder to reduce it.
                     height[i]--;
                     height[i + 1]++;
+
+                    // Sayak: The useApproxFA flag determines whether to use an approximate full adder based on the
+                    // specified approximation column and the availability of an approximate module for the current weight.
                     const bool useApproxFA = approxColumn >= 0 && static_cast<int>(i) <= approxColumn &&
                                              !ApproxConfig::getModuleForWeight(i).empty();
+
+                    
                     if (approxColumn >= 0)
                     {
-                        comp = new FullAdder({LevelizedPartials[i][0], LevelizedPartials[i][1],
-                                              PartialProduct(i)}, useApproxFA, true);
+                        comp = new FullAdder({LevelizedPartials[i][0], LevelizedPartials[i][1]},
+                                              useApproxFA, true);
                     }
                     else
                     {

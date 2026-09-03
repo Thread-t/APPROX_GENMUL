@@ -28,9 +28,7 @@ int CreateRippleCarryAdder(int nIn1, int nIn2, string &file, int approxColumn) /
         {
             if (useApproxFA)
             {
-                vector<PartialProduct> inputs = LevelizedPartials[curentWeight];
-                inputs.push_back(PartialProduct(curentWeight));
-                comp = new FullAdder(inputs, true, true);
+                comp = new FullAdder(LevelizedPartials[curentWeight], true, true);
             }
             else
             {
