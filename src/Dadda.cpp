@@ -131,7 +131,7 @@ static vector<int> DaddaCore(map<int, int> Ins, int nIn1, int nIn2, string &file
                     // The reference library approximates only the low Dadda columns; columns at/above
                     // approxColumn remain exactly reduced using standard FullAdders.
                     const bool approxThisColumn = (approxColumn >= 0 && static_cast<int>(i) <= approxColumn);
-                    const bool useApproxFA = approxThisColumn && !ApproxConfig::getModuleForWeight(i).empty();
+                    const bool useApproxFA = approxThisColumn && !(ApproxConfig::getModuleForWeight(i).empty());
 
                     height[i] -= 2;
                     height[i + 1]++;

@@ -68,7 +68,7 @@ void printUsage(const char *program)
         << " <dadda-column> <carry-mask> <sum-mask> [approx-method]\n\n"
         << "ppg: 1=unsigned, 2=signed\n"
         << "ppa: 1=array, 2=Wallace, 3=Dadda, 4=counter-Wallace, 5=approximate Dadda\n"
-        << "fsa: 1=ripple-carry adder, 2=CLA, 3=Lander-Fischer, 4=Kogge-Stone,"
+        << "fsa: 1=ripple, 2=CLA, 3=Lander-Fischer, 4=Kogge-Stone,"
         << "5=Brent-Kung, 6=carry-skip, 7=serial-prefix\n"
         << "approx-method: 0=exact, 1=truncation only, 2=FA substitution only, 3=both\n"
         << "carry-mask and sum-mask must be decimal values from 0 to 255.\n";
@@ -137,7 +137,6 @@ int main(int argc, char **argv)
                   << "7. Serial Prefix Adder\n";
         if (!readValue(">> ", 1, 7, thirdStage))
             return 1;
-
         // Prompt the user for the input sizes
         if (!readValue("First input size: ", 1, std::numeric_limits<int>::max(), in1Size) ||
             !readValue("Second input size: ", 1, std::numeric_limits<int>::max(), in2Size))
@@ -152,7 +151,7 @@ int main(int argc, char **argv)
             std::cout << "\nThe selected Dadda column contains only approximate full adders; "
                       << "half adders remain exact.\n";
 
-            if (!readValue("How many columns to approximate: ", 0, maximumColumn, approxColumn) ||
+            if (!readValue("Dadda column to approximate: ", 0, maximumColumn, approxColumn) ||
                 !readValue("Carry truth-table mask (0..255): ", 0, 255, approxCout) ||
                 !readValue("Sum truth-table mask (0..255): ", 0, 255, approxSum) ||
                 !readValue("Approximation method (0=exact,1=truncation,2=FA-sub,3=both): ", 0, 3, approxMethod))
@@ -223,19 +222,16 @@ int main(int argc, char **argv)
         approxColumn, approxCout, approxSum, approxMethod);
 
     std::ofstream file(name);
-
     if (!file)
     {
         std::cerr << "Could not open output file: " << name << std::endl;
         return 1;
     }
 
-    // Write the generated Verilog code to the output file.
     file << finalCode;
     //moduleConnector(10, 5, "10bit-SPS-WL-CK.v");
     //ofstream file("48bit.v");
     //CarrySkipAdderVariable(48, 48, file);
-
     if (!file)
     {
         std::cerr << "Could not write output file: " << name << std::endl;
