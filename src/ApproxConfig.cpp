@@ -26,16 +26,14 @@ namespace ApproxConfig {
         return "approx_fa_" + to_string(coutMask) + "_" + to_string(sumMask);
     }
 
-    // Sayak: Generate a truth table from carry and sum masks.
+    // Sayak: Generate a truth table from carry and sum masks for three inouts.
     vector<int> truthTableFromMasks(int coutMask, int sumMask)
     {
         vector<int> tt(8);
 
-        // Bit 7 corresponds to input 000; bit 0 corresponds to input 111.
+        //Sayak: Bit 7 corresponds to input 000; bit 0 corresponds to input 111. I am running the loop from 0 - 7
         for (int input = 0; input < 8; ++input)
         {
-            // The masks are in reverse order: bit 7 is for input 000, 
-            // bit 0 is for input 111.
             int c = (coutMask >> (7 - input)) & 1;
             int s = (sumMask  >> (7 - input)) & 1;
             tt[input] = (c << 1) | s;
@@ -45,9 +43,7 @@ namespace ApproxConfig {
     }
 
     // Sayak: Configure the approximate full adder for all Dadda columns below a given limit.
-    // Only the lower columns [0 .. approxColumn-1] are approximated; all columns >= approxColumn
-    // remain exact. The approximation applies only to 3:2 reduction stages (FullAdder), since
-    // HalfAdder uses a different code path and remains exact.
+    // Only the lower columns [0 ... approxColumn] are approximated; all columns >= approxColumn are exact.
     void configureApproxFA(int approxColumn, int coutMask, int sumMask)
     {
         clear();
@@ -67,16 +63,20 @@ namespace ApproxConfig {
     {
         if (truthTable.size() != 8)
             return string("");
+
+        // Generate a unique module name based on the truth table
         string name = makeModuleName(truthTable);
 
         // store module if not present
         if (modules.find(name) == modules.end())
             modules[name] = truthTable;
+
+        // store mapping from weight to module name
         weightToModule[weight] = name;
         return name;
     }
 
-    // Get the module name for a given weight, or empty string if not set
+    // Sayak: Get the module name for a given weight, or empty string if not set
     string getModuleForWeight(int weight)
     {
         auto it = weightToModule.find(weight);
@@ -85,7 +85,7 @@ namespace ApproxConfig {
         return it->second;
     }
 
-    // Get the map of module names to their truth tables
+    // Sayak: Get the map of module names to their truth tables
     map<string, vector<int>> getModulesMap()
     {
         return modules;

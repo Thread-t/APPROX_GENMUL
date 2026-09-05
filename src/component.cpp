@@ -156,6 +156,7 @@ string FullAdder::returnVerilogCode(map<int, string>& signalMap, int ID)
     int weight = this->inputs[0].returnWeight();
     string moduleName = "FullAdder";
 
+    // Sayak: set this flag true when you need to approximate and check here before generating the dummy half adder
     if (this->approximate)
     {
         string approx = ApproxConfig::getModuleForWeight(weight);
@@ -163,6 +164,8 @@ string FullAdder::returnVerilogCode(map<int, string>& signalMap, int ID)
             moduleName = approx;
     }
 
+    // Sayak: <!! critical> signalMap[this->inputs[2].returnNo() : for the genuine three inout full adder node
+    // for approximation we will use 1'b0 to act like a Half adder 
     string thirdInput = this->constantThirdInput ? "1'b0" : signalMap[this->inputs[2].returnNo()];
     string out = "  " + moduleName + " U" + to_string(ID) + " (" + signalMap[this->inputs[0].returnNo()] + ", " + signalMap[this->inputs[1].returnNo()] + ", " + thirdInput + ", " + signalMap[this->outputs[0].returnNo()] + ", " + signalMap[this->outputs[1].returnNo()] + ");";
     return out;

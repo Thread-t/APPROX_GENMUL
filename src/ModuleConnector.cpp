@@ -102,6 +102,7 @@ string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int 
     switch (thirdStage)
     {
     case 1:
+        //Sayak_i : pass the width of the firts row to final adder 
         nAdd = CreateRippleCarryAdder(PPAInfo[0] - PPAInfo[2], PPAInfo[1], file,
                                       secondStage == 5 && (approxMethod == 2 || approxMethod == 3) ? approxColumn : -1);
         thirdStageName = "RC";

@@ -35,6 +35,7 @@ void GenerateApproxModule(const string &moduleName, const vector<int> &truthTabl
 void GenerateApproxModules(string &file)
 {
     // Sayak: Get the map of module names to truth tables from ApproxConfig
+    // I used map later to avoid duplicate definitions
     auto modules = ApproxConfig::getModulesMap();
     for (auto &m : modules)
     {

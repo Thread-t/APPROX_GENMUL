@@ -22,12 +22,14 @@ int CreateRippleCarryAdder(int nIn1, int nIn2, string &file, int approxColumn) /
 
     while (!endFlag)
     {
+        // Sayak: Logic to check if approximation request exists ?
         const bool useApproxFA = approxColumn >= 0 && curentWeight < approxColumn &&
                                  !ApproxConfig::getModuleForWeight(curentWeight).empty();
         if (LevelizedPartials[curentWeight].size() == 2) //if there are two partial products with the same weights
         {
             if (useApproxFA)
             {
+                // Sayak: USe the dummy Full Adder which will behave like Half adder
                 comp = new FullAdder(LevelizedPartials[curentWeight], true, true);
             }
             else

@@ -73,7 +73,7 @@ static vector<int> DaddaCore(map<int, int> Ins, int nIn1, int nIn2, string &file
     }
     reverse(D.begin(), D.end());
 
-    map<int, int> height;  //to keep the track of the heights during dadda reduction
+    map<int, int> height;  //to keep the track of the heights during dadda reduction //Sayak: 8 >> 6 >> 4 >> 2 like this
 
     for (auto i : LevelizedPartials)
     {
@@ -104,19 +104,22 @@ static vector<int> DaddaCore(map<int, int> Ins, int nIn1, int nIn2, string &file
                     height[i]--;
                     height[i + 1]++;
 
-                    // Sayak: The useApproxFA flag determines whether to use an approximate full adder based on the
+                    // Sayak: The useApproxFA flag determines whether to use an approximate dummy full adder based on the
                     // specified approximation column and the availability of an approximate module for the current weight.
+                    // !ApproxConfig::getModuleForWeight(i).empty() : confirms the module is anyway to be configured  for this column before we will think to do approximation
                     const bool useApproxFA = approxColumn >= 0 && static_cast<int>(i) <= approxColumn &&
                                              !ApproxConfig::getModuleForWeight(i).empty();
 
                     
                     if (approxColumn >= 0)
                     {
+                        // Sayak : For approx Dadda use the Full Adder only with third input as 0 when the last argument passed as true <constantThird>
                         comp = new FullAdder({LevelizedPartials[i][0], LevelizedPartials[i][1]},
                                               useApproxFA, true);
                     }
                     else
                     {
+                        //Sayak_i : For normal Dadda , use normal half adder with two inputs
                         comp = new HalfAdder({LevelizedPartials[i][0], LevelizedPartials[i][1]});
                     }
                     comp->SetOutputs();
@@ -126,14 +129,17 @@ static vector<int> DaddaCore(map<int, int> Ins, int nIn1, int nIn2, string &file
                     GeneratedAtLevel.push_back(comp->returnOutputs()[1]);
                     break;
                 }
-                else
+                else //
                 {
-                    // The reference library approximates only the low Dadda columns; columns at/above
-                    // approxColumn remain exactly reduced using standard FullAdders.
+                    // Sayak: The reference library approximates only the low Dadda columns; columns at/above approxColumn <user input> remain exactly reduced using standard FullAdders.
                     const bool approxThisColumn = (approxColumn >= 0 && static_cast<int>(i) <= approxColumn);
-                    const bool useApproxFA = approxThisColumn && !(ApproxConfig::getModuleForWeight(i).empty());
+                    //Sayak: Check wheather the module exist or not
+                    const bool useApproxFA = approxThisColumn && !ApproxConfig::getModuleForWeight(i).empty();
 
+
+                    // Sayak_i: this part is for controlling the height in case of a three input Full Adder 
                     height[i] -= 2;
+                    // Sayak_i : Carry creates a new bit in the next column
                     height[i + 1]++;
 
                     comp = new FullAdder({LevelizedPartials[i][0], LevelizedPartials[i][1], LevelizedPartials[i][2]}, useApproxFA);
@@ -147,6 +153,7 @@ static vector<int> DaddaCore(map<int, int> Ins, int nIn1, int nIn2, string &file
         }
         PartialProduct::LevelizePartials(LevelizedPartials, GeneratedAtLevel);
         GeneratedAtLevel.clear();
+        //Sayak: Flag added to understand which Dadda stage i am 
         stage++;
     }
 
