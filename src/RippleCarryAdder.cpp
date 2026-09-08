@@ -1,7 +1,7 @@
 #include "RippleCarryAdder.hpp"
 #include "ApproxConfig.hpp"
 
-int CreateRippleCarryAdder(int nIn1, int nIn2, string &file, int approxColumn) // Get two integer numbers as input sizes and create the ripple carry adder
+int CreateRippleCarryAdder(int nIn1, int nIn2, string &file, int approxColumn, bool debugMode) // Get two integer numbers as input sizes and create the ripple carry adder
 {
     assert(nIn1 > 0 && nIn2 > 0 && "Lenght of input bits should be bigger than zero");
 
@@ -29,8 +29,8 @@ int CreateRippleCarryAdder(int nIn1, int nIn2, string &file, int approxColumn) /
         {
             if (useApproxFA)
             {
-                // Sayak: USe the dummy Full Adder which will behave like Half adder
-                comp = new FullAdder(LevelizedPartials[curentWeight], true, true);
+                // Sayak: Use the dummy Full Adder which will behave like Half adder
+                comp = new FullAdder(LevelizedPartials[curentWeight], true, true, debugMode);
             }
             else
             {
@@ -41,7 +41,7 @@ int CreateRippleCarryAdder(int nIn1, int nIn2, string &file, int approxColumn) /
         }
         else //if there are three partial products with the same weights
         {
-            comp = new FullAdder(LevelizedPartials[curentWeight], useApproxFA);
+            comp = new FullAdder(LevelizedPartials[curentWeight], useApproxFA, false, useApproxFA && debugMode);
             LevelizedPartials[curentWeight].clear();
             comp->SetOutputs();
         }

@@ -5,10 +5,16 @@ namespace ApproxConfig {
     static map<int, string> weightToModule;
     static map<string, vector<int>> modules;
 
+    // Maps weight -> revert module name (populated by enableDebugMode())
+    static map<int, string> weightToRevertModule;
+    static map<string, vector<int>> revertModules;
+
     void clear()
     {
         weightToModule.clear();
         modules.clear();
+        weightToRevertModule.clear();
+        revertModules.clear();
     }
 
     //Sayak: Make the module name more interpretable by encoding the carry and sum masks separately.
@@ -89,6 +95,85 @@ namespace ApproxConfig {
     map<string, vector<int>> getModulesMap()
     {
         return modules;
+    }
+
+    // Returns the truth table of the exact 3-input full adder.
+    // Input index i = (X<<2)|(Y<<1)|Z; output = (Cout<<1)|Sum.
+    vector<int> exactFATruthTable()
+    {
+        vector<int> tt(8);
+        for (int i = 0; i < 8; ++i)
+        {
+            int X = (i >> 2) & 1;
+            int Y = (i >> 1) & 1;
+            int Z =  i       & 1;
+            int sum  = X ^ Y ^ Z;
+            int cout = (X & Y) | (Y & Z) | (Z & X);
+            tt[i] = (cout << 1) | sum;
+        }
+        return tt;
+    }
+
+    // Revert-cell truth table: revert[i] = exact[i] XOR approx[i] (per bit).
+    // When the revert cell's Sum/Cout outputs are XOR'd with the approx cell's
+    // Sum/Cout outputs, the result equals the exact full-adder output.
+    vector<int> revertTruthTable(const vector<int> &approxTT)
+    {
+        vector<int> exact = exactFATruthTable();
+        vector<int> rv(8);
+        for (int i = 0; i < 8; ++i)
+        {
+            // XOR each of the two output bits independently
+            rv[i] = exact[i] ^ approxTT[i];
+        }
+        return rv;
+    }
+
+    // Returns the revert module name for a given weight, or empty string if none.
+    string getRevertModuleForWeight(int weight)
+    {
+        auto it = weightToRevertModule.find(weight);
+        if (it == weightToRevertModule.end())
+            return string("");
+        return it->second;
+    }
+
+    // Returns the map of revert module names to their truth tables.
+    map<string, vector<int>> getRevertModulesMap()
+    {
+        return revertModules;
+    }
+
+    // Derives revert-module name from approx module name by replacing prefix.
+    static string makeRevertModuleName(const string &approxName)
+    {
+        // approx name format: "approx_fa_<coutMask>_<sumMask>"
+        // revert name format: "revert_fa_<coutMask>_<sumMask>"
+        string rv = approxName;
+        if (rv.substr(0, 7) == "approx_")
+            rv = "revert_" + rv.substr(7);
+        else
+            rv = "revert_" + rv;
+        return rv;
+    }
+
+    // Enables debug mode: for every registered approx module, register its
+    // corresponding revert module so that GenerateRevertModules() can emit it.
+    void enableDebugMode()
+    {
+        for (auto &wm : weightToModule)
+        {
+            int weight = wm.first;
+            const string &approxName = wm.second;
+            const vector<int> &approxTT = modules[approxName];
+
+            string rvName = makeRevertModuleName(approxName);
+            vector<int> rvTT = revertTruthTable(approxTT);
+
+            weightToRevertModule[weight] = rvName;
+            if (revertModules.find(rvName) == revertModules.end())
+                revertModules[rvName] = rvTT;
+        }
     }
 
 }

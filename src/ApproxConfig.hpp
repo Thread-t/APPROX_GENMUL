@@ -24,6 +24,22 @@ namespace ApproxConfig {
     vector<int> truthTableFromMasks(int coutMask, int sumMask);
     void configureApproxFA(int approxColumn, int coutMask, int sumMask);
 
+    // --- DEBUG / FVLIDAC revert-cell support ---
+    // Returns the truth table of the exact full adder (standard majority/XOR).
+    vector<int> exactFATruthTable();
+
+    // Computes the revert-cell truth table for a given approx truth table:
+    //   revert[i] = exact[i] XOR approx[i]  (independently for Cout bit and Sum bit)
+    vector<int> revertTruthTable(const vector<int> &approxTT);
+
+    // Returns the revert module name for a given weight's approx module, or "" if none.
+    string getRevertModuleForWeight(int weight);
+
+    // Returns map revertModuleName -> revertTruthTable (populated when debugMode is on).
+    map<string, vector<int>> getRevertModulesMap();
+
+    // Enables debug mode: for every approx module registered, also register its revert module.
+    void enableDebugMode();
 }
 
 #endif

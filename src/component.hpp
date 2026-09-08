@@ -40,10 +40,11 @@ class FullAdder : public Component
   private:
     bool approximate = false;
     bool constantThirdInput = false;
+    bool debugMode = false;  // FVLIDAC debug: use debug wrapper (approx + revert) instead of bare approx
 
   public:
-    FullAdder(vector<PartialProduct> ins, bool approx = false, bool constantThird = false):
-      Component(ins), approximate(approx), constantThirdInput(constantThird) {}
+    FullAdder(vector<PartialProduct> ins, bool approx = false, bool constantThird = false, bool debug = false):
+      Component(ins), approximate(approx), constantThirdInput(constantThird), debugMode(debug) {}
     void SetApproximate(bool approx) { this->approximate = approx; }
     string returnVerilogCode (map<int, string>& signalMap, int ID);
 };

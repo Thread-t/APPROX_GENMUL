@@ -65,13 +65,17 @@ void printUsage(const char *program)
         << "Usage:\n"
         << "  " << program << " <ppg> <ppa> <fsa> <in1-bits> <in2-bits>\n"
         << "  " << program << " <ppg> 5 <fsa> <in1-bits> <in2-bits>"
-        << " <dadda-column> <carry-mask> <sum-mask> [approx-method]\n\n"
+        << " <dadda-column> <carry-mask> <sum-mask> [approx-method] [debug]\n\n"
         << "ppg: 1=unsigned, 2=signed\n"
         << "ppa: 1=array, 2=Wallace, 3=Dadda, 4=counter-Wallace, 5=approximate Dadda\n"
         << "fsa: 1=ripple-carry adder, 2=CLA, 3=Lander-Fischer, 4=Kogge-Stone,"
         << "5=Brent-Kung, 6=carry-skip, 7=serial-prefix\n"
         << "approx-method: 0=exact, 1=truncation only, 2=FA substitution only, 3=both\n"
-        << "carry-mask and sum-mask must be decimal values from 0 to 255.\n";
+        << "carry-mask and sum-mask must be decimal values from 0 to 255.\n"
+        << "debug: 0=normal (approximate), 1=DEBUG mode (approx + revert cell, functionally exact)\n"
+        << "  In DEBUG mode each approximate cell is paired with a revert cell so the\n"
+        << "  composite netlist is functionally equivalent to the exact multiplier.\n"
+        << "  This enables formal verification (FVLIDAC, IEEE 10506204).\n";
 }
 
 void printBanner()
@@ -104,6 +108,7 @@ int main(int argc, char **argv)
     int approxCout = 23;
     int approxSum = 105;
     int approxMethod = 2;
+    bool debugMode = false;
 
     if (argc == 1)
     {
@@ -152,19 +157,33 @@ int main(int argc, char **argv)
             std::cout << "\nThe selected Dadda column contains only approximate full adders; "
                       << "half adders are also full adders but passing zero as one input to behave like half adders\n";
 
+            int debugInt = 0;
             if (!readValue("How many columns to approximate: ", 0, maximumColumn, approxColumn) ||
                 !readValue("Carry truth-table mask (0..255): ", 0, 255, approxCout) ||
                 !readValue("Sum truth-table mask (0..255): ", 0, 255, approxSum) ||
-                !readValue("Approximation method (0=exact,1=truncation,2=FA-sub,3=both): ", 0, 3, approxMethod))
+                !readValue("Approximation method (0=exact,1=truncation,2=FA-sub,3=both): ", 0, 3, approxMethod) ||
+                !readValue("DEBUG mode - FVLIDAC revert cell (0=off,1=on): ", 0, 1, debugInt))
             {
                 return 1;
+            }
+            debugMode = (debugInt == 1);
+
+            if (debugMode)
+            {
+                std::cout << "DEBUG mode enabled: each approximate cell will be paired with a revert cell.\n"
+                          << "The generated netlist is functionally exact (suitable for formal verification).\n";
             }
         }
     }
     else
     {
         // Parse command line arguments.
-        if (argc != 6 && argc != 9 && argc != 10)
+        // Valid argument counts:
+        //   6  : <ppg> <ppa> <fsa> <in1> <in2>                                    (non-approx)
+        //   9  : <ppg> 5    <fsa> <in1> <in2> <col> <cmask> <smask>               (approx, defaults)
+        //  10  : <ppg> 5    <fsa> <in1> <in2> <col> <cmask> <smask> <method>      (approx + method)
+        //  11  : <ppg> 5    <fsa> <in1> <in2> <col> <cmask> <smask> <method> <dbg>(approx + method + debug)
+        if (argc != 6 && argc != 9 && argc != 10 && argc != 11)
         {
             printUsage(argv[0]);
             return 1;
@@ -184,7 +203,7 @@ int main(int argc, char **argv)
         if (secondStage == 5)
         {
             //check additional arguments for approximate Dadda
-            if (argc != 9 && argc != 10)
+            if (argc != 9 && argc != 10 && argc != 11)
             {
                 printUsage(argv[0]);
                 return 1;
@@ -201,9 +220,18 @@ int main(int argc, char **argv)
                 return 1;
             }
 
-            if (argc == 10 && !parseArgument(argv[9], "approximation method", 0, 3, approxMethod))
+            if (argc >= 10)
             {
-                return 1;
+                if (!parseArgument(argv[9], "approximation method", 0, 3, approxMethod))
+                    return 1;
+            }
+
+            if (argc == 11)
+            {
+                int debugInt = 0;
+                if (!parseArgument(argv[10], "debug mode", 0, 1, debugInt))
+                    return 1;
+                debugMode = (debugInt == 1);
             }
         }
         // If it is not approximate Dadda, there should be no additional arguments.
@@ -217,10 +245,10 @@ int main(int argc, char **argv)
     // Generate the multiplier Verilog code and write it to a file.
     const std::string name = GenMulNameMaker(
         in1Size, in2Size, firstStage, secondStage, thirdStage,
-        approxColumn, approxCout, approxSum, approxMethod);
+        approxColumn, approxCout, approxSum, approxMethod, debugMode);
     const std::string finalCode = GenMul(
         in1Size, in2Size, firstStage, secondStage, thirdStage,
-        approxColumn, approxCout, approxSum, approxMethod);
+        approxColumn, approxCout, approxSum, approxMethod, debugMode);
 
     std::ofstream file(name);
 

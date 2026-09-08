@@ -3,7 +3,7 @@
 
 #define UNUSED(x) (void)(x)
 
-static vector<int> DaddaCore(map<int, int> Ins, int nIn1, int nIn2, string &file, const string &typeName, int truncateBits, int approxColumn = -1)
+static vector<int> DaddaCore(map<int, int> Ins, int nIn1, int nIn2, string &file, const string &typeName, int truncateBits, int approxColumn = -1, bool debugMode = false)
 {
     UNUSED(nIn1);
     UNUSED(nIn2);
@@ -115,7 +115,7 @@ static vector<int> DaddaCore(map<int, int> Ins, int nIn1, int nIn2, string &file
                     {
                         // Sayak : For approx Dadda use the Full Adder only with third input as 0 when the last argument passed as true <constantThird>
                         comp = new FullAdder({LevelizedPartials[i][0], LevelizedPartials[i][1]},
-                                              useApproxFA, true);
+                                              useApproxFA, true, useApproxFA && debugMode);
                     }
                     else
                     {
@@ -137,12 +137,12 @@ static vector<int> DaddaCore(map<int, int> Ins, int nIn1, int nIn2, string &file
                     const bool useApproxFA = approxThisColumn && !ApproxConfig::getModuleForWeight(i).empty();
 
 
-                    // Sayak_i: this part is for controlling the height in case of a three input Full Adder 
+                    // Sayak_i: this part is for controlling the height in case of a three input Full Adder
                     height[i] -= 2;
                     // Sayak_i : Carry creates a new bit in the next column
                     height[i + 1]++;
 
-                    comp = new FullAdder({LevelizedPartials[i][0], LevelizedPartials[i][1], LevelizedPartials[i][2]}, useApproxFA);
+                    comp = new FullAdder({LevelizedPartials[i][0], LevelizedPartials[i][1], LevelizedPartials[i][2]}, useApproxFA, false, useApproxFA && debugMode);
                     comp->SetOutputs();
                     LevelizedPartials[i].erase(LevelizedPartials[i].begin(), LevelizedPartials[i].begin() + 3);
                     compList.push_back(comp);
@@ -222,7 +222,7 @@ static vector<int> DaddaCore(map<int, int> Ins, int nIn1, int nIn2, string &file
 }
 
 //Sayak: The following function implements the Dadda multiplier algorithm with optional approximation methods.
-vector<int> ApproxDadda(map<int, int> Ins, int nIn1, int nIn2, string &file, int approxColumn, int approxMethod)
+vector<int> ApproxDadda(map<int, int> Ins, int nIn1, int nIn2, string &file, int approxColumn, int approxMethod, bool debugMode)
 {
     // approxMethod: 0=exact, 1=truncation only, 2=FA substitution only, 3=both
     assert(approxMethod >= 0 && approxMethod <= 3 && "Approximation method must be 0-3");
@@ -249,7 +249,7 @@ vector<int> ApproxDadda(map<int, int> Ins, int nIn1, int nIn2, string &file, int
 
     // The approximation is applied only to full-adder reduction nodes in columns [0 .. approxColumn-1].
     // Columns >= approxColumn remain exact, and half-adders stay exact throughout.
-    return DaddaCore(Ins, nIn1, nIn2, file, "ADT", truncateBits, approxColumn);
+    return DaddaCore(Ins, nIn1, nIn2, file, "ADT", truncateBits, approxColumn, debugMode);
 }
 
 // Sayak: The following function implements the Dadda multiplier algorithm without any approximation methods.

@@ -161,7 +161,18 @@ string FullAdder::returnVerilogCode(map<int, string>& signalMap, int ID)
     {
         string approx = ApproxConfig::getModuleForWeight(weight);
         if (!approx.empty())
-            moduleName = approx;
+        {
+            if (this->debugMode)
+            {
+                // FVLIDAC DEBUG mode: use the wrapper that contains approx FA + revert cell
+                // so the composite cell is functionally exact (for formal verification).
+                moduleName = "debug_" + approx;
+            }
+            else
+            {
+                moduleName = approx;
+            }
+        }
     }
 
     // Sayak: <!! critical> signalMap[this->inputs[2].returnNo() : for the genuine three inout full adder node

@@ -43,6 +43,55 @@ void GenerateApproxModules(string &file)
     }
 }
 
+// Generate revert-cell modules (one per distinct approx module) using the same
+// SOP template as GenerateApproxModule.  The revert cell computes
+//   revert[i] = exact_fa[i] XOR approx_fa[i]
+// so that  S_exact = S_approx XOR S_revert  and  Cout_exact = Cout_approx XOR Cout_revert.
+void GenerateRevertModules(string &file)
+{
+    auto revertModules = ApproxConfig::getRevertModulesMap();
+    for (auto &m : revertModules)
+    {
+        GenerateApproxModule(m.first, m.second, file);
+    }
+}
+
+// Generate one debug-wrapper module per approx module.
+// The wrapper has the same port interface as FullAdder: (X, Y, Z, S, Cout).
+// Internally it instantiates:
+//   1. The approx FA          -> (S_a, C_a)
+//   2. The revert cell        -> (S_r, C_r)
+//   3. XOR corrections        -> S = S_a ^ S_r,  Cout = C_a ^ C_r
+// This makes the composite cell functionally exact while keeping the approx cell
+// in the netlist — exactly the FVLIDAC DEBUG concept from IEEE 10506204.
+void GenerateDebugWrapperModules(string &file)
+{
+    auto approxModules = ApproxConfig::getModulesMap();
+    for (auto &m : approxModules)
+    {
+        const string &approxName = m.first;
+        // Derive the revert module name the same way ApproxConfig does.
+        string revertName = approxName;
+        if (revertName.substr(0, 7) == "approx_")
+            revertName = "revert_" + revertName.substr(7);
+        else
+            revertName = "revert_" + revertName;
+
+        string wrapName = "debug_" + approxName;
+
+        file += "// DEBUG wrapper: approx FA + revert cell => functionally exact\n";
+        file += "module " + wrapName + "(X, Y, Z, S, Cout);\n";
+        file += "input X, Y, Z;\n";
+        file += "output S, Cout;\n";
+        file += "wire S_a, C_a, S_r, C_r;\n";
+        file += "  " + approxName + " U_approx (" + "X, Y, Z, S_a, C_a);\n";
+        file += "  " + revertName + " U_revert (" + "X, Y, Z, S_r, C_r);\n";
+        file += "assign S    = S_a ^ S_r;\n";
+        file += "assign Cout = C_a ^ C_r;\n";
+        file += "endmodule\n";
+    }
+}
+
 void GenerateMainHeader(int nIn1, int nIn2, string &file) //generate the header of module for main multiplier
 {
     string moduleName = "module Mult_" + to_string(nIn1) + "_" + to_string(nIn2);
