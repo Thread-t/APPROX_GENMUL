@@ -39,11 +39,11 @@ void GenerateCompressor (string &file);
 void GenerateCounter (string &file);
 void GenerateApproxModules(string &file);
 void GenerateApproxModule(const string &moduleName, const vector<int> &truthTable, string &file);
-// DEBUG / FVLIDAC revert-cell support:
-// Emits the revert-cell Verilog module (same SOP style as approx module).
+// DEBUG / FVLIDAC revert-cell support (IEEE 10506204):
+// Emits revert-cell modules with signature (X,Y,Z,S_a,C_a,S_out,C_out).
+// Each revert cell is placed immediately after its approx cell in the netlist;
+// together they are functionally equivalent to a single exact FullAdder.
 void GenerateRevertModules(string &file);
-// Emits one debug-wrapper module per approx module: wraps approx + revert + XOR correction.
-void GenerateDebugWrapperModules(string &file);
 string infoPrint (int firstInputLength, int secondInputLength, int firstStageID, int secondStageID, int thirdStageID);
 #endif
 

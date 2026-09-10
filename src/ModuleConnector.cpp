@@ -42,14 +42,14 @@ string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int 
         ApproxConfig::configureApproxFA(approxColumn, approxCout, approxSum);
         GenerateApproxModules(file);
 
-        // DEBUG mode (FVLIDAC): also emit revert cells and debug wrapper modules.
-        // The wrapper presents the same port interface as a standard FullAdder but
-        // contains approx FA + revert cell + XOR correction, making it functionally exact.
+        // Sayak: DEBUG mode : emit revert-cell modules.
+        // In the netlist, each approx FA instantiation is followed immediately by
+        // its revert cell which takes the approx outputs and corrects them back
+        // to the exact FullAdder result (see FullAdder::returnVerilogCode).
         if (debugMode)
         {
             ApproxConfig::enableDebugMode();
             GenerateRevertModules(file);
-            GenerateDebugWrapperModules(file);
         }
     }
     else
@@ -111,7 +111,7 @@ string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int 
     switch (thirdStage)
     {
     case 1:
-        //Sayak_i : pass the width of the firts row to final adder
+        //Sayak_i : pass the width of the first row to final adder
         nAdd = CreateRippleCarryAdder(PPAInfo[0] - PPAInfo[2], PPAInfo[1], file,
                                       secondStage == 5 && (approxMethod == 2 || approxMethod == 3) ? approxColumn : -1,
                                       debugMode);

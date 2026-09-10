@@ -154,31 +154,70 @@ string FullAdder::returnVerilogCode(map<int, string>& signalMap, int ID)
     // Full adders are only approximated when explicitly marked for the lower Dadda columns.
     // All higher columns remain exact, and half adders are never marked approximate.
     int weight = this->inputs[0].returnWeight();
-    string moduleName = "FullAdder";
 
-    // Sayak: set this flag true when you need to approximate and check here before generating the dummy half adder
+    // Sayak: <!! critical> for approximation we will use 1'b0 to act like a Half adder
+    string thirdInput = this->constantThirdInput ? "1'b0" : signalMap[this->inputs[2].returnNo()];
+
     if (this->approximate)
     {
-        string approx = ApproxConfig::getModuleForWeight(weight);
-        if (!approx.empty())
+        string approxName = ApproxConfig::getModuleForWeight(weight);
+        if (!approxName.empty() && this->debugMode)
         {
-            if (this->debugMode)
-            {
-                // FVLIDAC DEBUG mode: use the wrapper that contains approx FA + revert cell
-                // so the composite cell is functionally exact (for formal verification).
-                moduleName = "debug_" + approx;
-            }
-            else
-            {
-                moduleName = approx;
-            }
+            // Sayak --> DEBUG mode :
+            // Emit the approx cell writing to private wires wa<ID>_s / wa<ID>_c,
+            // then immediately the revert cell taking those wires and producing
+            // the corrected exact outputs that flow into the rest of the netlist.
+            // Together the pair is functionally equivalent to a single exact FullAdder.
+            string revertName = ApproxConfig::getRevertModuleForWeight(weight);
+
+            string sApprox = "wa" + to_string(ID) + "_s";
+            string cApprox = "wa" + to_string(ID) + "_c";
+
+            // Downstream signal names (already in signalMap as w<N> or Out*)
+            const string &sOut = signalMap[this->outputs[0].returnNo()];
+            const string &cOut = signalMap[this->outputs[1].returnNo()];
+
+            string out = "";
+            // Private intermediate wires 
+            out += "  wire " + sApprox + ";\n";
+            out += "  wire " + cApprox + ";\n";
+            // Approx FA: X,Y,Z → S_a, C_a
+            out += "  " + approxName + " U" + to_string(ID) + " ("
+                + signalMap[this->inputs[0].returnNo()] + ", "
+                + signalMap[this->inputs[1].returnNo()] + ", "
+                + thirdInput + ", "
+                + sApprox + ", " + cApprox + ");";
+            out += "\n";
+            // Revert cell: X,Y,Z,S_a,C_a → S_out,C_out  ( corrected result)
+            out += "  " + revertName + " U" + to_string(ID) + "_r ("
+                + signalMap[this->inputs[0].returnNo()] + ", "
+                + signalMap[this->inputs[1].returnNo()] + ", "
+                + thirdInput + ", "
+                + sApprox + ", " + cApprox + ", "
+                + sOut + ", " + cOut + ");";
+            return out;
+        }
+
+        if (!approxName.empty())
+        {
+            // Normal approximate mode (no debug): bare approx cell.
+            string out = "  " + approxName + " U" + to_string(ID) + " ("
+                + signalMap[this->inputs[0].returnNo()] + ", "
+                + signalMap[this->inputs[1].returnNo()] + ", "
+                + thirdInput + ", "
+                + signalMap[this->outputs[0].returnNo()] + ", "
+                + signalMap[this->outputs[1].returnNo()] + ");";
+            return out;
         }
     }
 
-    // Sayak: <!! critical> signalMap[this->inputs[2].returnNo() : for the genuine three inout full adder node
-    // for approximation we will use 1'b0 to act like a Half adder 
-    string thirdInput = this->constantThirdInput ? "1'b0" : signalMap[this->inputs[2].returnNo()];
-    string out = "  " + moduleName + " U" + to_string(ID) + " (" + signalMap[this->inputs[0].returnNo()] + ", " + signalMap[this->inputs[1].returnNo()] + ", " + thirdInput + ", " + signalMap[this->outputs[0].returnNo()] + ", " + signalMap[this->outputs[1].returnNo()] + ");";
+    // Exact FullAdder
+    string out = "  FullAdder U" + to_string(ID) + " ("
+        + signalMap[this->inputs[0].returnNo()] + ", "
+        + signalMap[this->inputs[1].returnNo()] + ", "
+        + thirdInput + ", "
+        + signalMap[this->outputs[0].returnNo()] + ", "
+        + signalMap[this->outputs[1].returnNo()] + ");";
     return out;
 }
 

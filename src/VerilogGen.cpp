@@ -43,54 +43,51 @@ void GenerateApproxModules(string &file)
     }
 }
 
-// Generate revert-cell modules (one per distinct approx module) using the same
-// SOP template as GenerateApproxModule.  The revert cell computes
-//   revert[i] = exact_fa[i] XOR approx_fa[i]
-// so that  S_exact = S_approx XOR S_revert  and  Cout_exact = Cout_approx XOR Cout_revert.
+// Sayak: Generate revert-cell modules (one per distinct approx module).
+// FVLIDAC DEBUG: the revert cell takes the original 3 inputs PLUS the approx
+// cell's outputs (S_a, C_a) and produces corrected exact outputs (S_out, C_out):
+//   S_out   = S_a   ^ error_S(X,Y,Z)    where error_S = exact_S XOR approx_S
+//   C_out   = C_a   ^ error_C(X,Y,Z)    where error_C = exact_C XOR approx_C
+// Placed immediately after each approx cell instantiation in the netlist, this
+// pair is together functionally equivalent to a single exact FullAdder.
 void GenerateRevertModules(string &file)
 {
     auto revertModules = ApproxConfig::getRevertModulesMap();
     for (auto &m : revertModules)
     {
-        GenerateApproxModule(m.first, m.second, file);
-    }
-}
+        const string &revertName = m.first;
+        const vector<int> &revertTT = m.second;  // error term: exact XOR approx
 
-// Generate one debug-wrapper module per approx module.
-// The wrapper has the same port interface as FullAdder: (X, Y, Z, S, Cout).
-// Internally it instantiates:
-//   1. The approx FA          -> (S_a, C_a)
-//   2. The revert cell        -> (S_r, C_r)
-//   3. XOR corrections        -> S = S_a ^ S_r,  Cout = C_a ^ C_r
-// This makes the composite cell functionally exact while keeping the approx cell
-// in the netlist — exactly the FVLIDAC DEBUG concept from IEEE 10506204.
-void GenerateDebugWrapperModules(string &file)
-{
-    auto approxModules = ApproxConfig::getModulesMap();
-    for (auto &m : approxModules)
-    {
-        const string &approxName = m.first;
-        // Derive the revert module name the same way ApproxConfig does.
-        string revertName = approxName;
-        if (revertName.substr(0, 7) == "approx_")
-            revertName = "revert_" + revertName.substr(7);
-        else
-            revertName = "revert_" + revertName;
+        // Build SOP for each error bit (same helper as GenerateApproxModule)
+        auto buildSOP = [&](int bitShift) -> string
+        {
+            string expr = "0";
+            for (int i = 0; i < 8; ++i)
+            {
+                int val = (i < (int)revertTT.size()) ? (revertTT[i] & 3) : 0;
+                if (((val >> bitShift) & 1) == 0)
+                    continue;
+                int X = (i >> 2) & 1, Y = (i >> 1) & 1, Z = i & 1;
+                expr += " | (";
+                expr += (X ? "X" : "~X"); expr += " & ";
+                expr += (Y ? "Y" : "~Y"); expr += " & ";
+                expr += (Z ? "Z" : "~Z"); expr += ")";
+            }
+            return expr;
+        };
 
-        string wrapName = "debug_" + approxName;
-
-        file += "// DEBUG wrapper: approx FA + revert cell => functionally exact\n";
-        file += "module " + wrapName + "(X, Y, Z, S, Cout);\n";
+        // 5 inputs: X,Y,Z (original FA inputs) + S_a,C_a (approx outputs from previous cell)
+        // 2 outputs: S_out, C_out (corrected exact outputs)
+        file += "module " + revertName + "(X, Y, Z, S_a, C_a, S_out, C_out);\n";
         file += "input X, Y, Z;\n";
-        file += "output S, Cout;\n";
-        file += "wire S_a, C_a, S_r, C_r;\n";
-        file += "  " + approxName + " U_approx (" + "X, Y, Z, S_a, C_a);\n";
-        file += "  " + revertName + " U_revert (" + "X, Y, Z, S_r, C_r);\n";
-        file += "assign S    = S_a ^ S_r;\n";
-        file += "assign Cout = C_a ^ C_r;\n";
+        file += "input S_a, C_a;\n";
+        file += "output S_out, C_out;\n";
+        file += "assign C_out = C_a ^ (" + buildSOP(1) + ") ;\n";
+        file += "assign S_out = S_a ^ (" + buildSOP(0) + ") ;\n";
         file += "endmodule\n";
     }
 }
+/////////////////////////////////////////////////////////
 
 void GenerateMainHeader(int nIn1, int nIn2, string &file) //generate the header of module for main multiplier
 {
@@ -271,7 +268,7 @@ map<int, string> generateWires(int nIn1, int nIn2, vector<int> signalIDs, vector
             wireIDs.push_back(i);
         }
     }
-    //printing out the wire signal declaration
+    //Sayak_i : printing out the wire signal declaration
     string s;
     for (auto i : wireIDs)
     {
