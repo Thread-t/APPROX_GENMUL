@@ -49,6 +49,10 @@ class FullAdder : public Component
     string returnVerilogCode (map<int, string>& signalMap, int ID);
     // Returns names of private intermediate wires needed in DEBUG mode (empty otherwise).
     vector<string> debugWireNames(int ID);
+    // Returns the signal ID of the carry output (outputs[1]) — used to patch signalMap in debug mode.
+    int carryOutputNo() { return this->outputs[1].returnNo(); }
+    // Returns the signal ID of the sum output (outputs[0]).
+    int sumOutputNo()   { return this->outputs[0].returnNo(); }
 };
 
 // class FullAdderProp is a child for Component (same as FUllAdder but generates propagate signals)

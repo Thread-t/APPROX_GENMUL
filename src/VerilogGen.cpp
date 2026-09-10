@@ -383,27 +383,75 @@ map<int, string> generateWires(map<int, int> Ins, vector<int> signalIDs, vector<
 
 void GenerateComponents(map<int, string>& signalMap, vector<Component *>& compList, string &file)
 {
-    // Pre-pass: hoist all private debug wires to the top of the module body,
-    // matching the paper's style where all wire declarations precede instances.
+    // Pre-pass A — collect original carry names and emit wa* wire declarations.
+    //
+    // For each debug-mode approximate FullAdder (ID = ComponentID):
+    //   • wa<ID>_s / wa<ID>_c  are the REVERT CELL outputs (corrected exact values).
+    //   • The approx cell still drives the normal w<N> / Out[k] wires.
+    //   • Downstream components (next approx Z-input, exact FAs) must read wa<ID>_c,
+    //     so after this pass signalMap[carryID] is patched to "wa<ID>_c".
+    //   • During the approx FA's own returnVerilogCode call we temporarily restore
+    //     the original w<N> name so it appears on the approx + revert ports correctly.
+
+    // Side-map: carryOutputNo → original wire name before patch
+    map<int, string> originalCarryName;
+
     int ComponentID = 0;
-    for (auto &i : compList)
+    for (auto &comp : compList)
     {
-        FullAdder *fa = dynamic_cast<FullAdder *>(i);
+        FullAdder *fa = dynamic_cast<FullAdder *>(comp);
         if (fa)
         {
-            for (auto &w : fa->debugWireNames(ComponentID))
-                file += "  wire " + w + ";\n";
+            vector<string> wires = fa->debugWireNames(ComponentID);
+            if (!wires.empty())
+            {
+                // Emit hoisted wire declarations
+                file += "  wire " + wires[0] + ";\n";   // wa<ID>_s
+                file += "  wire " + wires[1] + ";\n";   // wa<ID>_c
+
+                int carryID = fa->carryOutputNo();
+                // Save original name (w<N> or Out[k]) before overwriting
+                originalCarryName[carryID] = signalMap[carryID];
+                // Patch: downstream reads of this carry now get wa<ID>_c
+                signalMap[carryID] = wires[1];
+            }
         }
         ComponentID++;
     }
 
-    // Second pass: emit all component instantiations
+    // Pre-pass B — also patch the Z-input of each debug FA.
+    // The Z-input comes from the carry output of the *previous* cell. If that
+    // previous cell was also a debug FA, its carry was already patched to wa*_c
+    // in pass A, so signalMap[prevCarryID] is already correct.
+    // No extra work needed — the signalMap patch propagates automatically.
+
+    // Instance pass — emit all components.
+    // For a debug FA, temporarily restore the original carry name so that the
+    // approx cell's output port and the revert cell's C_a port show "w<N>",
+    // then re-apply the patch so subsequent reads see "wa<ID>_c".
     string s;
     ComponentID = 0;
     string temp = "";
-    for (auto &i : compList)
+    for (auto &comp : compList)
     {
-        s = i->returnVerilogCode(signalMap, ComponentID);
+        FullAdder *fa = dynamic_cast<FullAdder *>(comp);
+        if (fa)
+        {
+            vector<string> wires = fa->debugWireNames(ComponentID);
+            if (!wires.empty())
+            {
+                int carryID = fa->carryOutputNo();
+                // Restore original name for this FA's own port listing
+                signalMap[carryID] = originalCarryName[carryID];
+                s = comp->returnVerilogCode(signalMap, ComponentID);
+                // Re-patch so downstream components still read wa<ID>_c
+                signalMap[carryID] = wires[1];
+                temp = temp + s + "\n";
+                ComponentID++;
+                continue;
+            }
+        }
+        s = comp->returnVerilogCode(signalMap, ComponentID);
         temp = temp + s + "\n";
         ComponentID++;
     }

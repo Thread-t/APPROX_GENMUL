@@ -164,33 +164,45 @@ string FullAdder::returnVerilogCode(map<int, string>& signalMap, int ID)
         if (!approxName.empty() && this->debugMode)
         {
             // Sayak --> FVLIDAC DEBUG mode (IEEE 10506204):
-            // Approx cell writes to private wires wa<ID>_s / wa<ID>_c.
-            // Revert cell takes those wires and the original inputs, and drives
-            // the downstream netlist wires (sOut/cOut) with the exact result.
-            // Wire declarations are hoisted to the module top by GenerateComponents.
+            //
+            // The approx cell drives the NORMAL downstream wires (sOut, cOut) —
+            // identical port connections to non-debug mode.  This keeps the approx
+            // error visible in the netlist.
+            //
+            // The revert cell reads those same approx outputs back (as S_a, C_a)
+            // together with the original inputs X,Y,Z and produces the CORRECTED
+            // exact outputs on wa<ID>_s / wa<ID>_c.
+            //
+            // GenerateComponents patches the signalMap so that any downstream
+            // component whose Z-input was allocated as cOut (w<N>) now reads
+            // wa<ID>_c instead — i.e. the corrected exact carry propagates forward.
+            //
+            // Wire declarations (wa*_s, wa*_c) are hoisted to the module top.
             string revertName = ApproxConfig::getRevertModuleForWeight(weight);
 
-            string sApprox = "wa" + to_string(ID) + "_s";
-            string cApprox = "wa" + to_string(ID) + "_c";
-
+            // Normal downstream wires — approx cell drives these (same as non-debug)
             const string &sOut = signalMap[this->outputs[0].returnNo()];
             const string &cOut = signalMap[this->outputs[1].returnNo()];
 
+            // Private corrected wires — revert cell outputs these
+            string waS = "wa" + to_string(ID) + "_s";
+            string waC = "wa" + to_string(ID) + "_c";
+
             string out = "";
-            // Approx FA: X,Y,Z → S_a, C_a  (private wires declared at module top)
+            // Approx FA: X,Y,Z → sOut, cOut  (normal wires, approx values)
             out += "  " + approxName + " U" + to_string(ID) + " ("
                 + signalMap[this->inputs[0].returnNo()] + ", "
                 + signalMap[this->inputs[1].returnNo()] + ", "
                 + thirdInput + ", "
-                + sApprox + ", " + cApprox + ");";
+                + sOut + ", " + cOut + ");";
             out += "\n";
-            // Revert cell: X,Y,Z,S_a,C_a → S_out,C_out  (corrected exact result)
+            // Revert cell: X,Y,Z, S_a=sOut, C_a=cOut → waS, waC  (exact corrected)
             out += "  " + revertName + " U" + to_string(ID) + "_r ("
                 + signalMap[this->inputs[0].returnNo()] + ", "
                 + signalMap[this->inputs[1].returnNo()] + ", "
                 + thirdInput + ", "
-                + sApprox + ", " + cApprox + ", "
-                + sOut + ", " + cOut + ");";
+                + sOut + ", " + cOut + ", "
+                + waS + ", " + waC + ");";
             return out;
         }
 
