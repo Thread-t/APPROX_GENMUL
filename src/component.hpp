@@ -47,6 +47,8 @@ class FullAdder : public Component
       Component(ins), approximate(approx), constantThirdInput(constantThird), debugMode(debug) {}
     void SetApproximate(bool approx) { this->approximate = approx; }
     string returnVerilogCode (map<int, string>& signalMap, int ID);
+    // Returns names of private intermediate wires needed in DEBUG mode (empty otherwise).
+    vector<string> debugWireNames(int ID);
 };
 
 // class FullAdderProp is a child for Component (same as FUllAdder but generates propagate signals)

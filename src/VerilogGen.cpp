@@ -383,13 +383,28 @@ map<int, string> generateWires(map<int, int> Ins, vector<int> signalIDs, vector<
 
 void GenerateComponents(map<int, string>& signalMap, vector<Component *>& compList, string &file)
 {
+    // Pre-pass: hoist all private debug wires to the top of the module body,
+    // matching the paper's style where all wire declarations precede instances.
+    int ComponentID = 0;
+    for (auto &i : compList)
+    {
+        FullAdder *fa = dynamic_cast<FullAdder *>(i);
+        if (fa)
+        {
+            for (auto &w : fa->debugWireNames(ComponentID))
+                file += "  wire " + w + ";\n";
+        }
+        ComponentID++;
+    }
+
+    // Second pass: emit all component instantiations
     string s;
-    int ComponentID = 0; //an ID which is needed for components mapping
+    ComponentID = 0;
     string temp = "";
     for (auto &i : compList)
     {
         s = i->returnVerilogCode(signalMap, ComponentID);
-        temp = temp+s+"\n";
+        temp = temp + s + "\n";
         ComponentID++;
     }
     file += temp + "\n";
