@@ -2,9 +2,10 @@
 """
 dadda_diagram.py
 -----------------
-Reconstructs and draws a stage-by-stage dot diagram of a GenMul-generated
-Dadda / approximate-Dadda partial-product reduction tree, formatting the output
-to exactly match standard continuous hardware visualization plots.
+Reconstructs and draws a complete stage-by-stage dot diagram of an 8x8 (or NxN)
+Dadda / approximate-Dadda partial-product reduction tree directly from Verilog.
+Includes all uncompressed columns (0, 1, etc.) in every stage and isolates
+signal parsing to the target module to prevent cross-module contamination.
 """
 
 import argparse
@@ -19,7 +20,7 @@ import matplotlib.lines as lines
 
 EXACT_TYPES = {"FullAdder", "HalfAdder"}
 
-# --- Visual Styling to match reference diagram ---
+# --- Visual Styling to match standard reference diagrams ---
 DOT_R = 0.30
 DOT_GAP = 0.95
 COL_GAP = 1.05
@@ -48,7 +49,7 @@ def parse_module_instances(text, module_name):
         if len(args) not in (4, 5):
             continue
         instances.append((typ, name, args))
-    return instances
+    return instances, body
 
 PIN_RE = re.compile(r"^IN(\d+)\[(\d+)\]$")
 
@@ -59,9 +60,17 @@ def col_of_pin(pin):
 # ----------------------------------------------------------------------
 # 2. Build the reduction schedule
 # ----------------------------------------------------------------------
-def build_schedule(instances):
+def build_schedule(instances, module_body):
     stage_of, col_of = {}, {}
     adders = []
+
+    # BUG FIX: Scan module_body strictly, NOT full_text.
+    # This prevents IN1 and IN2 from other modules (like RC_14_14) from flooding the columns.
+    all_inputs = re.findall(r"\bIN(\d+)\[(\d+)\]", module_body)
+    for col_str, bit_str in all_inputs:
+        pin = f"IN{col_str}[{bit_str}]"
+        col_of[pin] = int(col_str)
+        stage_of[pin] = 1
 
     def get_col_stage(pin):
         if pin in ("1'b0", "1'b1", "0", "1"):
@@ -122,7 +131,7 @@ def simulate_columns(adders, stage_of, col_of):
             cols[col_of[wire]].append(wire)
             
     for c in cols:
-        cols[c].sort(key=lambda w: int(re.search(r"\[(\d+)\]", w).group(1)))
+        cols[c].sort(key=lambda w: int(re.search(r"\[(\d+)\]", w).group(1)) if "[" in w else 0)
 
     adders_by_stage = defaultdict(list)
     for a in adders:
@@ -145,7 +154,7 @@ def simulate_columns(adders, stage_of, col_of):
     return snapshots, final_cols, n_stages
 
 # ----------------------------------------------------------------------
-# 3. Rendering (Overhauled for continuous visual layout)
+# 3. Rendering
 # ----------------------------------------------------------------------
 def _ordered_blocks(wires, col_adders_here):
     blocks = []
@@ -158,7 +167,6 @@ def _ordered_blocks(wires, col_adders_here):
     free = [w for w in wires if w not in used]
     
     result = []
-    # Place uncompressed (free) dots at the top of the column block 
     if free:
         result.append((None, free))
     result.extend(blocks)
@@ -175,7 +183,6 @@ def render_combined(snapshots, final_cols, out_path, min_c, max_c):
     
     current_y = 0.0
     
-    # Draw Top Column Indices
     for c in range(min_c, max_c + 1):
         x = (max_c - c) * COL_GAP
         ax.text(x, current_y + DOT_R + 0.3, str(c), ha="center", va="bottom", 
@@ -189,7 +196,8 @@ def render_combined(snapshots, final_cols, out_path, min_c, max_c):
         stage_top_y = current_y
         stage_bottom_y = current_y
         
-        for c, wires in cols.items():
+        for c in range(min_c, max_c + 1):
+            wires = cols.get(c, [])
             blocks = _ordered_blocks(wires, col_adders.get(c, []))
             y = stage_top_y
             
@@ -203,7 +211,7 @@ def render_combined(snapshots, final_cols, out_path, min_c, max_c):
                     ax.add_patch(patches.Circle((x, y), DOT_R, facecolor=DOT_COLOR, 
                                                 edgecolor="none", zorder=3))
                     y -= DOT_GAP
-                y1 = y + DOT_GAP # Adjust back to last drawn dot
+                y1 = y + DOT_GAP
                 
                 if a is not None:
                     x = (max_c - c) * COL_GAP
@@ -218,14 +226,12 @@ def render_combined(snapshots, final_cols, out_path, min_c, max_c):
                     
                 stage_bottom_y = min(stage_bottom_y, y)
         
-        # Draw Stage Label on Left side
-        label = f"STAGE {s}" if i < len(stages_to_draw) - 1 else f"RCA STAGE {s}"
+        label = f"STAGE {s}" if i < len(stages_to_draw) - 1 else f"RCA STAGE"
         label_x = -2.5 * COL_GAP
         label_y = (stage_top_y + stage_bottom_y + DOT_GAP) / 2
         ax.text(label_x, label_y, label, rotation=90, ha="center", va="center", 
                 fontsize=8, fontweight="bold")
         
-        # Advance Y and Draw Separator
         current_y = stage_bottom_y - 1.2
         if i < len(stages_to_draw) - 1:
             line_y = current_y + 0.6
@@ -233,7 +239,6 @@ def render_combined(snapshots, final_cols, out_path, min_c, max_c):
                                 [line_y, line_y], lw=0.8, color="#8b0000", alpha=0.6)
             ax.add_line(line)
             
-    # Calculate limits to tightly bound the drawing
     ax.set_xlim(-4 * COL_GAP, (max_c - min_c + 1.5) * COL_GAP)
     ax.set_ylim(current_y, 1.5)
     ax.set_aspect("equal")
@@ -255,20 +260,19 @@ def main():
     args = ap.parse_args()
 
     text = open(args.verilog).read()
-    instances = parse_module_instances(text, args.module)
-    adders, stage_of, col_of, n_stages = build_schedule(instances)
+    instances, module_body = parse_module_instances(text, args.module)
+    
+    # Pass module_body instead of text to prevent over-parsing global IN1/IN2 nets
+    adders, stage_of, col_of, n_stages = build_schedule(instances, module_body)
     snapshots, final_cols, n_stages = simulate_columns(adders, stage_of, col_of)
 
-    all_cols = set()
-    for _, cols, _ in snapshots:
-        all_cols |= set(cols.keys())
-    all_cols |= set(final_cols.keys())
+    all_cols = set(col_of.values())
     min_c, max_c = min(all_cols), max(all_cols)
 
     out_path = args.output or (args.verilog.rsplit(".", 1)[0] + "_dadda.png")
     saved = render_combined(snapshots, final_cols, out_path, min_c, max_c)
 
-    print(f"Generated unified Dadda tree diagram: {saved[0]}")
+    print(f"Generated complete Dadda tree diagram (columns {min_c} to {max_c}): {saved[0]}")
 
 if __name__ == "__main__":
     main()
