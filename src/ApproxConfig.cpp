@@ -1,5 +1,7 @@
 #include "ApproxConfig.hpp"
 
+//Sayak: This namespace contains the configuration for approximate full adders used in the multiplier design. 
+//It allows setting and retrieving approximate modules based on their weight (column index) in the Dadda tree, as well as generating revert modules for debugging purposes. <cecAprox approach>
 namespace ApproxConfig {
 
     static map<int, string> weightToModule;
@@ -9,6 +11,7 @@ namespace ApproxConfig {
     static map<int, string> weightToRevertModule;
     static map<string, vector<int>> revertModules;
 
+    // Sayak: Clear all registered approximate modules and revert modules
     void clear()
     {
         weightToModule.clear();
@@ -106,7 +109,7 @@ namespace ApproxConfig {
         {
             int X = (i >> 2) & 1;
             int Y = (i >> 1) & 1;
-            int Z =  i       & 1;
+            int Z =  i       & 1;  //looking at the last bit of i ! nice looking :)
             int sum  = X ^ Y ^ Z;
             int cout = (X & Y) | (Y & Z) | (Z & X);
             tt[i] = (cout << 1) | sum;
@@ -157,7 +160,7 @@ namespace ApproxConfig {
         return rv;
     }
 
-    // Enables debug mode: for every registered approx module, register its
+    // Sayak: Enables debug mode: for every registered approx module, register its
     // corresponding revert module so that GenerateRevertModules() can emit it.
     void enableDebugMode()
     {

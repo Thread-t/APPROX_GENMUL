@@ -2,6 +2,8 @@
 #include "ApproxConfig.hpp"
 #include <cstdio>
 
+
+//////////////////////// : Sayak: DOI <17 : 08 :2026> ///////////////////////////////
 // Sayak: Template for generating approximate modules as per Digital Logic Format logic
 void GenerateApproxModule(const string &moduleName, const vector<int> &truthTable, string &file)
 {
@@ -43,51 +45,56 @@ void GenerateApproxModules(string &file)
     }
 }
 
-// Sayak: Generate revert-cell modules (one per distinct approx module).
+// Sayak: Generate revert-cell modules (one per distinct approx module).                 <-- I will dbug later <-- 03 : 09 : 2026) 
 // FVLIDAC DEBUG: the revert cell takes the original 3 inputs PLUS the approx
 // cell's outputs (S_a, C_a) and produces corrected exact outputs (S_out, C_out):
 //   S_out   = S_a   ^ error_S(X,Y,Z)    where error_S = exact_S XOR approx_S
 //   C_out   = C_a   ^ error_C(X,Y,Z)    where error_C = exact_C XOR approx_C
 // Placed immediately after each approx cell instantiation in the netlist, this
 // pair is together functionally equivalent to a single exact FullAdder.
-void GenerateRevertModules(string &file)
+void GenerateRevertModule(const string &revertName, const vector<int> &revertTT, string &file)
 {
+    // Build SOP for each error bit (same helper as GenerateApproxModule)
+    auto buildSOP = [&](int bitShift) -> string
+    {
+        string expr = "0";
+        for (int i = 0; i < 8; ++i)
+        {
+            int val = (i < (int)revertTT.size()) ? (revertTT[i] & 3) : 0;
+            if (((val >> bitShift) & 1) == 0)
+                continue;
+            int X = (i >> 2) & 1, Y = (i >> 1) & 1, Z = i & 1;
+            expr += " | (";
+            expr += (X ? "X" : "~X"); expr += " & ";
+            expr += (Y ? "Y" : "~Y"); expr += " & ";
+            expr += (Z ? "Z" : "~Z"); expr += ")";
+        }
+        return expr;
+    };
+
+    // 5 inputs: X,Y,Z (original FA inputs) + S_a,C_a (approx outputs from previous cell)
+    // 2 outputs: S_out, C_out (corrected exact outputs)
+    file += "module " + revertName + "(X, Y, Z, S_a, C_a, S_out, C_out);\n";
+    file += "input X, Y, Z;\n";
+    file += "input S_a, C_a;\n";
+    file += "output S_out, C_out;\n";
+    file += "assign C_out = C_a ^ (" + buildSOP(1) + ") ;\n";
+    file += "assign S_out = S_a ^ (" + buildSOP(0) + ") ;\n";
+    file += "endmodule\n";
+
+}
+
+void GenerateRevertModules(string &file)   // <-- i will dbug later <-- 03 : 09 : 2026
+{
+    // Sayak: Get the map of module names to truth tables from ApproxConfig
+    // I used map later to avoid duplicate definitions
     auto revertModules = ApproxConfig::getRevertModulesMap();
     for (auto &m : revertModules)
     {
-        const string &revertName = m.first;
-        const vector<int> &revertTT = m.second;  // error term: exact XOR approx
-
-        // Build SOP for each error bit (same helper as GenerateApproxModule)
-        auto buildSOP = [&](int bitShift) -> string
-        {
-            string expr = "0";
-            for (int i = 0; i < 8; ++i)
-            {
-                int val = (i < (int)revertTT.size()) ? (revertTT[i] & 3) : 0;
-                if (((val >> bitShift) & 1) == 0)
-                    continue;
-                int X = (i >> 2) & 1, Y = (i >> 1) & 1, Z = i & 1;
-                expr += " | (";
-                expr += (X ? "X" : "~X"); expr += " & ";
-                expr += (Y ? "Y" : "~Y"); expr += " & ";
-                expr += (Z ? "Z" : "~Z"); expr += ")";
-            }
-            return expr;
-        };
-
-        // 5 inputs: X,Y,Z (original FA inputs) + S_a,C_a (approx outputs from previous cell)
-        // 2 outputs: S_out, C_out (corrected exact outputs)
-        file += "module " + revertName + "(X, Y, Z, S_a, C_a, S_out, C_out);\n";
-        file += "input X, Y, Z;\n";
-        file += "input S_a, C_a;\n";
-        file += "output S_out, C_out;\n";
-        file += "assign C_out = C_a ^ (" + buildSOP(1) + ") ;\n";
-        file += "assign S_out = S_a ^ (" + buildSOP(0) + ") ;\n";
-        file += "endmodule\n";
+        GenerateRevertModule(m.first, m.second, file);
     }
-}
-/////////////////////////////////////////////////////////
+} //generate the revert modules for approximate FAs
+//////////////////////////: Sayak: ///////////////////////////////
 
 void GenerateMainHeader(int nIn1, int nIn2, string &file) //generate the header of module for main multiplier
 {
@@ -247,7 +254,7 @@ map<int, string> generateWires(int nIn1, int nIn2, vector<int> signalIDs, vector
 {
     vector<int> outputIDs;               //output signals IDs
     vector<int> wireIDs;                 //intermediate signals IDs
-    map<int, int> mapIDweight; //a hash to store weights of outputs based on the IDs
+    map<int, int> mapIDweight;           //a hash to store weights of outputs based on the IDs
     for (auto i : outPartials)
     {
         outputIDs.push_back(i.returnNo());
