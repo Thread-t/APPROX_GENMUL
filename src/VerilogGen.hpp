@@ -43,6 +43,7 @@ void GenerateApproxModule(const string &moduleName, const vector<int> &truthTabl
 // Emits revert-cell modules with signature (X,Y,Z,S_a,C_a,S_out,C_out).
 // Each revert cell is placed immediately after its approx cell in the netlist;
 // together they are functionally equivalent to a single exact FullAdder.
+void GenerateRevertModule(const string &moduleName, const vector<int> &truthTable, string &file);
 void GenerateRevertModules(string &file);
 string infoPrint (int firstInputLength, int secondInputLength, int firstStageID, int secondStageID, int thirdStageID);
 #endif
