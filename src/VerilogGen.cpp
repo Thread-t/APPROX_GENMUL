@@ -390,17 +390,19 @@ map<int, string> generateWires(map<int, int> Ins, vector<int> signalIDs, vector<
 
 void GenerateComponents(map<int, string>& signalMap, vector<Component *>& compList, string &file)
 {
-    // Pre-pass A — collect original carry names and emit wa* wire declarations.
+    // Pre-pass A — collect original sum/carry names and emit wa* wire declarations.
     //
     // For each debug-mode approximate FullAdder (ID = ComponentID):
-    //   • wa<ID>_s / wa<ID>_c  are the REVERT CELL outputs (corrected exact values).
+    //   • wa<ID>_s / wa<ID>_c are the REVERT CELL outputs (corrected exact values).
     //   • The approx cell still drives the normal w<N> / Out[k] wires.
-    //   • Downstream components (next approx Z-input, exact FAs) must read wa<ID>_c,
-    //     so after this pass signalMap[carryID] is patched to "wa<ID>_c".
+    //   • Downstream components must read the corrected exact sum/carry, not the
+    //     approximate outputs, so both signalMap[sumID] and signalMap[carryID]
+    //     are patched here.
     //   • During the approx FA's own returnVerilogCode call we temporarily restore
-    //     the original w<N> name so it appears on the approx + revert ports correctly.
+    //     the original w<N> names so the approx + revert instance lists the correct
+    //     ports for the internal approx cell and revert cell.
 
-    // Side-map: carryOutputNo → original wire name before patch
+    map<int, string> originalSumName;
     map<int, string> originalCarryName;
 
     int ComponentID = 0;
@@ -416,26 +418,24 @@ void GenerateComponents(map<int, string>& signalMap, vector<Component *>& compLi
                 file += "  wire " + wires[0] + ";\n";   // wa<ID>_s
                 file += "  wire " + wires[1] + ";\n";   // wa<ID>_c
 
+                int sumID = fa->sumOutputNo();
                 int carryID = fa->carryOutputNo();
-                // Save original name (w<N> or Out[k]) before overwriting
+
+                originalSumName[sumID] = signalMap[sumID];
                 originalCarryName[carryID] = signalMap[carryID];
-                // Patch: downstream reads of this carry now get wa<ID>_c
+
+                // Patch: downstream reads of the exact sum/carry now see wa*_s / wa*_c
+                signalMap[sumID] = wires[0];
                 signalMap[carryID] = wires[1];
             }
         }
         ComponentID++;
     }
 
-    // Pre-pass B — also patch the Z-input of each debug FA.
-    // The Z-input comes from the carry output of the *previous* cell. If that
-    // previous cell was also a debug FA, its carry was already patched to wa*_c
-    // in pass A, so signalMap[prevCarryID] is already correct.
-    // No extra work needed — the signalMap patch propagates automatically.
-
     // Instance pass — emit all components.
-    // For a debug FA, temporarily restore the original carry name so that the
-    // approx cell's output port and the revert cell's C_a port show "w<N>",
-    // then re-apply the patch so subsequent reads see "wa<ID>_c".
+    // For a debug FA, temporarily restore the original sum/carry names so that the
+    // approx cell's output port and the revert cell's S_a/C_a ports show the normal
+    // internal wires, then re-apply the patch so subsequent reads see wa<ID>_s / wa<ID>_c.
     string s;
     ComponentID = 0;
     string temp = "";
@@ -447,12 +447,19 @@ void GenerateComponents(map<int, string>& signalMap, vector<Component *>& compLi
             vector<string> wires = fa->debugWireNames(ComponentID);
             if (!wires.empty())
             {
+                int sumID = fa->sumOutputNo();
                 int carryID = fa->carryOutputNo();
-                // Restore original name for this FA's own port listing
+
+                // Sayak: Restore original names for this FA's own port listing
+                signalMap[sumID] = originalSumName[sumID];
                 signalMap[carryID] = originalCarryName[carryID];
+
                 s = comp->returnVerilogCode(signalMap, ComponentID);
-                // Re-patch so downstream components still read wa<ID>_c
+
+                // Sayak: Re-patch so downstream components still read corrected exact values
+                signalMap[sumID] = wires[0];
                 signalMap[carryID] = wires[1];
+
                 temp = temp + s + "\n";
                 ComponentID++;
                 continue;
