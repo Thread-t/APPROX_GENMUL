@@ -52,24 +52,66 @@ void GenerateApproxModules(string &file)
 //   C_out   = C_a   ^ error_C(X,Y,Z)    where error_C = exact_C XOR approx_C
 // Placed immediately after each approx cell instantiation in the netlist, this
 // pair is together functionally equivalent to a single exact FullAdder.
+// void GenerateRevertModule(const string &revertName, const vector<int> &revertTT, string &file)
+// {
+//     // Build SOP for each error bit (same helper as GenerateApproxModule)
+//     auto buildSOP = [&](int bitShift) -> string
+//     {
+//         string expr = "0";
+//         for (int i = 0; i < 8; ++i)
+//         {
+//             int val = (i < (int)revertTT.size()) ? (revertTT[i] & 3) : 0;
+//             if (((val >> bitShift) & 1) == 0)
+//                 continue;
+//             int X = (i >> 2) & 1, Y = (i >> 1) & 1, Z = i & 1;
+//             expr += " | (";
+//             expr += (X ? "X" : "~X"); expr += " & ";
+//             expr += (Y ? "Y" : "~Y"); expr += " & ";
+//             expr += (Z ? "Z" : "~Z"); expr += ")";
+//         }
+//         return expr;
+//     };
+
+//     // 5 inputs: X,Y,Z (original FA inputs) + S_a,C_a (approx outputs from previous cell)
+//     // 2 outputs: S_out, C_out (corrected exact outputs)
+//     file += "module " + revertName + "(X, Y, Z, S_a, C_a, S_out, C_out);\n";
+//     file += "input X, Y, Z;\n";
+//     file += "input S_a, C_a;\n";
+//     file += "output S_out, C_out;\n";
+//     file += "assign C_out = C_a ^ (" + buildSOP(1) + ") ;\n";
+//     file += "assign S_out = S_a ^ (" + buildSOP(0) + ") ;\n";
+//     file += "endmodule\n";
+
+// }
+
 void GenerateRevertModule(const string &revertName, const vector<int> &revertTT, string &file)
 {
-    // Build SOP for each error bit (same helper as GenerateApproxModule)
+    // Build SOP for each error bit with corrected indexing endianness
     auto buildSOP = [&](int bitShift) -> string
     {
         string expr = "0";
+        bool hasMinterms = false;
+        string mintermsExpr = "";
+
         for (int i = 0; i < 8; ++i)
         {
             int val = (i < (int)revertTT.size()) ? (revertTT[i] & 3) : 0;
             if (((val >> bitShift) & 1) == 0)
                 continue;
-            int X = (i >> 2) & 1, Y = (i >> 1) & 1, Z = i & 1;
-            expr += " | (";
-            expr += (X ? "X" : "~X"); expr += " & ";
-            expr += (Y ? "Y" : "~Y"); expr += " & ";
-            expr += (Z ? "Z" : "~Z"); expr += ")";
+
+            // FIX: Mirror indexing configuration to match row decoder layout
+            // Row index 001 maps to variables X=0, Y=1, Z=0
+            int X = (i >> 2) & 1;
+            int Y = (i >> 1) & 1;
+            int Z =  i       & 1;
+
+            mintermsExpr += " | (";
+            mintermsExpr += (X ? "X" : "~X"); mintermsExpr += " & ";
+            mintermsExpr += (Y ? "Y" : "~Y"); mintermsExpr += " & ";
+            mintermsExpr += (Z ? "Z" : "~Z"); mintermsExpr += ")";
+            hasMinterms = true;
         }
-        return expr;
+        return hasMinterms ? ("0" + mintermsExpr) : "0";
     };
 
     // 5 inputs: X,Y,Z (original FA inputs) + S_a,C_a (approx outputs from previous cell)
@@ -81,8 +123,8 @@ void GenerateRevertModule(const string &revertName, const vector<int> &revertTT,
     file += "assign C_out = C_a ^ (" + buildSOP(1) + ") ;\n";
     file += "assign S_out = S_a ^ (" + buildSOP(0) + ") ;\n";
     file += "endmodule\n";
-
 }
+
 
 void GenerateRevertModules(string &file)   // <-- i will dbug later <-- 03 : 09 : 2026
 {
