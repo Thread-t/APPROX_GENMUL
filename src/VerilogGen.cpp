@@ -84,6 +84,9 @@ void GenerateApproxModules(string &file)
 
 // }
 
+//Sayak : Major Fix. XD --> Wasted 3 days
+//Wires requiring no corrections return a pure, clean "0".
+//Wires requiring corrections append the minterms strictly formatted as "0 | (...) | (...)" without any dangling operators or broken logic chunks.
 void GenerateRevertModule(const string &revertName, const vector<int> &revertTT, string &file)
 {
     // Build SOP for each error bit with corrected indexing endianness
