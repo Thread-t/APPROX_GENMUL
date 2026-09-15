@@ -388,22 +388,40 @@ map<int, string> generateWires(map<int, int> Ins, vector<int> signalIDs, vector<
     return signalMap;
 }
 
+// Helper: returns true when a signal-map name refers to an output port
+// (i.e. contains "Out" — covers "Out[k]", "Out1[k]", "Out2[k]").
+static bool isOutputPort(const string &name)
+{
+    return name.find("Out") != string::npos;
+}
+
 void GenerateComponents(map<int, string>& signalMap, vector<Component *>& compList, string &file)
 {
-    // Pre-pass A — collect original sum/carry names and emit wa* wire declarations.
+    // Pre-pass — for each debug-mode approximate FullAdder:
     //
-    // For each debug-mode approximate FullAdder (ID = ComponentID):
-    //   • wa<ID>_s / wa<ID>_c are the REVERT CELL outputs (corrected exact values).
-    //   • The approx cell still drives the normal w<N> / Out[k] wires.
-    //   • Downstream components must read the corrected exact sum/carry, not the
-    //     approximate outputs, so both signalMap[sumID] and signalMap[carryID]
-    //     are patched here.
-    //   • During the approx FA's own returnVerilogCode call we temporarily restore
-    //     the original w<N> names so the approx + revert instance lists the correct
-    //     ports for the internal approx cell and revert cell.
+    //   Normal case (outputs are intermediate wires, e.g. w64, w77):
+    //     • wa<ID>_s / wa<ID>_c  — revert cell corrected outputs (exact values)
+    //     • Approx cell drives the normal w<N> wires (unchanged port names)
+    //     • Downstream reads of sum/carry are patched to wa<ID>_s / wa<ID>_c
+    //
+    //   Port case (output is a module output port, e.g. Out[0], Out2[1]):
+    //     • wa<ID>_ao / wa<ID>_ao_c — intermediate wires for the approx cell's output
+    //       (the approx cell can't drive an output port directly because the revert
+    //        cell must read that value as S_a/C_a before the corrected result reaches
+    //        the port)
+    //     • wa<ID>_s / wa<ID>_c    — revert cell corrected outputs (exact values)
+    //     • assign Out[k] = wa<ID>_s  (or Out[k] = wa<ID>_c) emitted after the pair
+    //     • Downstream reads are patched to wa<ID>_s / wa<ID>_c as usual
 
-    map<int, string> originalSumName;
+    // Maps from signal IDs to what the approx cell should actually drive
+    // (either the original wire name, or the new intermediate approx-output wire).
+    map<int, string> approxDriveName;   // what the approx cell's output port connects to
+    map<int, string> originalSumName;   // the true original signalMap name (possibly a port)
     map<int, string> originalCarryName;
+
+    // Extra wires needed when an output is a port
+    // key = ComponentID, value = pair<approx-sum-wire, approx-carry-wire>
+    map<int, pair<string,string>> approxPortIntermediates;
 
     int ComponentID = 0;
     for (auto &comp : compList)
@@ -414,18 +432,51 @@ void GenerateComponents(map<int, string>& signalMap, vector<Component *>& compLi
             vector<string> wires = fa->debugWireNames(ComponentID);
             if (!wires.empty())
             {
-                // Emit hoisted wire declarations
-                file += "  wire " + wires[0] + ";\n";   // wa<ID>_s
-                file += "  wire " + wires[1] + ";\n";   // wa<ID>_c
+                // wires[0] = wa<ID>_s  (revert cell sum output / corrected exact sum)
+                // wires[1] = wa<ID>_c  (revert cell carry output / corrected exact carry)
+                file += "  wire " + wires[0] + ";\n";
+                file += "  wire " + wires[1] + ";\n";
 
-                int sumID = fa->sumOutputNo();
+                int sumID   = fa->sumOutputNo();
                 int carryID = fa->carryOutputNo();
 
-                originalSumName[sumID] = signalMap[sumID];
+                originalSumName[sumID]     = signalMap[sumID];
                 originalCarryName[carryID] = signalMap[carryID];
 
-                // Patch: downstream reads of the exact sum/carry now see wa*_s / wa*_c
-                signalMap[sumID] = wires[0];
+                // Determine what the approx cell's output ports should connect to.
+                // When the original name is a module output port we must redirect the
+                // approx cell through an intermediate wire so the revert cell can read
+                // the approximate value as S_a/C_a.
+                string approxSumDrive   = signalMap[sumID];
+                string approxCarryDrive = signalMap[carryID];
+
+                bool sumIsPort   = isOutputPort(signalMap[sumID]);
+                bool carryIsPort = isOutputPort(signalMap[carryID]);
+
+                if (sumIsPort || carryIsPort)
+                {
+                    // Create intermediate approx-output wires
+                    string aoS = "wa" + to_string(ComponentID) + "_ao_s";
+                    string aoC = "wa" + to_string(ComponentID) + "_ao_c";
+
+                    if (sumIsPort)
+                    {
+                        file += "  wire " + aoS + ";\n";
+                        approxSumDrive = aoS;
+                    }
+                    if (carryIsPort)
+                    {
+                        file += "  wire " + aoC + ";\n";
+                        approxCarryDrive = aoC;
+                    }
+                    approxPortIntermediates[ComponentID] = { approxSumDrive, approxCarryDrive };
+                }
+
+                approxDriveName[sumID]   = approxSumDrive;
+                approxDriveName[carryID] = approxCarryDrive;
+
+                // Patch signalMap so downstream components read the corrected exact values
+                signalMap[sumID]   = wires[0];
                 signalMap[carryID] = wires[1];
             }
         }
@@ -433,9 +484,13 @@ void GenerateComponents(map<int, string>& signalMap, vector<Component *>& compLi
     }
 
     // Instance pass — emit all components.
-    // For a debug FA, temporarily restore the original sum/carry names so that the
-    // approx cell's output port and the revert cell's S_a/C_a ports show the normal
-    // internal wires, then re-apply the patch so subsequent reads see wa<ID>_s / wa<ID>_c.
+    // For a debug FA:
+    //   1. Temporarily substitute the approx-drive names into signalMap (so the approx
+    //      cell's output ports list the correct wires, not the corrected wa* names).
+    //   2. Call returnVerilogCode — it reads signalMap[sumID] / signalMap[carryID] for
+    //      sOut/cOut, and those now point to the approx-drive wires.
+    //   3. Re-apply the wa* patch.
+    //   4. If either output was a port, emit assign <portName> = wa<ID>_s/c.
     string s;
     ComponentID = 0;
     string temp = "";
@@ -447,26 +502,45 @@ void GenerateComponents(map<int, string>& signalMap, vector<Component *>& compLi
             vector<string> wires = fa->debugWireNames(ComponentID);
             if (!wires.empty())
             {
-                int sumID = fa->sumOutputNo();
+                int sumID   = fa->sumOutputNo();
                 int carryID = fa->carryOutputNo();
 
-                // Sayak: Restore original names for this FA's own port listing
-                signalMap[sumID] = originalSumName[sumID];
-                signalMap[carryID] = originalCarryName[carryID];
+                // Step 1: put approx-drive names into signalMap for this FA's port listing
+                signalMap[sumID]   = approxDriveName[sumID];
+                signalMap[carryID] = approxDriveName[carryID];
 
                 s = comp->returnVerilogCode(signalMap, ComponentID);
 
-                // Sayak: Re-patch so downstream components still read corrected exact values
-                signalMap[sumID] = wires[0];
+                // Step 3: re-patch to corrected exact names for downstream
+                signalMap[sumID]   = wires[0];
                 signalMap[carryID] = wires[1];
 
-                temp = temp + s + "\n";
+                temp += s + "\n";
+
+                // Step 4: if either output was a module port, assign corrected value to it
+                if (approxPortIntermediates.count(ComponentID))
+                {
+                    const string &origSum   = originalSumName[sumID];
+                    const string &origCarry = originalCarryName[carryID];
+                    const string &aoS = approxPortIntermediates[ComponentID].first;
+                    const string &aoC = approxPortIntermediates[ComponentID].second;
+
+                    if (isOutputPort(origSum))
+                        temp += "  assign " + origSum + " = " + wires[0] + ";\n";
+                    if (isOutputPort(origCarry))
+                        temp += "  assign " + origCarry + " = " + wires[1] + ";\n";
+
+                    // suppress unused-variable warning for aoS/aoC (they're used as
+                    // ports in the generated Verilog string, but not in C++ after here)
+                    (void)aoS; (void)aoC;
+                }
+
                 ComponentID++;
                 continue;
             }
         }
         s = comp->returnVerilogCode(signalMap, ComponentID);
-        temp = temp + s + "\n";
+        temp += s + "\n";
         ComponentID++;
     }
     file += temp + "\n";
