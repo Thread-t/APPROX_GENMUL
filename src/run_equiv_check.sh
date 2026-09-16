@@ -1,28 +1,33 @@
-#!/bin/bash
-# Automatically generated script for Yosys equivalence checking
-# Location: sayakdeb@eduroam-pool12-1219 src %
-# Change the name of the gold and gate verilog files as needed
+# Combinational equivalence check: exact GenMul multiplier vs approx+revert version
+# Requires the *renamed* gate netlist, so that equiv_make can match internal nodes by name.
+#
+#   yosys equiv_check.ys
 
-yosys -Q -p '
-  design -reset;
-  read_verilog 8_8_U_SP_DT_RC_GenMul.v;
-  rename Mult_8_8 gold;
-  hierarchy -top gold;
-  flatten gold;
-  design -stash gold_space;
+# ---------- golden ----------
+read_verilog 16_16_U_SP_DT_RC_GenMul.v
+hierarchy -check -top Mult_16_16
+proc
+flatten
+opt_clean
+design -stash gold
 
-  design -reset;
-  read_verilog 8_8_U_SP_ADT_RC_M2_COL10_C10_S170_DEBUG_GenMul.v;
-  rename Mult_8_8 gate;
-  hierarchy -top gate;
-  flatten gate;
-  design -stash gate_space;
+# ---------- gate (approx + revert, renamed) ----------
+design -reset
+read_verilog 16_16_U_SP_ADT_RC_M2_COL12_C51_S12_DEBUG_GenMul.v
+hierarchy -check -top Mult_16_16
+proc
+flatten
+opt_clean
+design -stash gate
 
-  design -copy-from gold_space gold;
-  design -copy-from gate_space gate;
+# ---------- miter ----------
+design -copy-from gold -as gold Mult_16_16
+design -copy-from gate -as gate Mult_16_16
+equiv_make gold gate equiv
+hierarchy -top equiv
 
-  equiv_make gold gate equiv;
-  equiv_simple;
-  equiv_induct equiv;
-  equiv_status -assert equiv
-'
+# Prove the easy (local) points first, then widen the cones.
+equiv_simple -short
+equiv_simple
+equiv_purge
+equiv_status -assert
