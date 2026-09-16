@@ -45,44 +45,6 @@ void GenerateApproxModules(string &file)
     }
 }
 
-// Sayak: Generate revert-cell modules (one per distinct approx module).                 <-- I will dbug later <-- 03 : 09 : 2026) 
-// FVLIDAC DEBUG: the revert cell takes the original 3 inputs PLUS the approx
-// cell's outputs (S_a, C_a) and produces corrected exact outputs (S_out, C_out):
-//   S_out   = S_a   ^ error_S(X,Y,Z)    where error_S = exact_S XOR approx_S
-//   C_out   = C_a   ^ error_C(X,Y,Z)    where error_C = exact_C XOR approx_C
-// Placed immediately after each approx cell instantiation in the netlist, this
-// pair is together functionally equivalent to a single exact FullAdder.
-// void GenerateRevertModule(const string &revertName, const vector<int> &revertTT, string &file)
-// {
-//     // Build SOP for each error bit (same helper as GenerateApproxModule)
-//     auto buildSOP = [&](int bitShift) -> string
-//     {
-//         string expr = "0";
-//         for (int i = 0; i < 8; ++i)
-//         {
-//             int val = (i < (int)revertTT.size()) ? (revertTT[i] & 3) : 0;
-//             if (((val >> bitShift) & 1) == 0)
-//                 continue;
-//             int X = (i >> 2) & 1, Y = (i >> 1) & 1, Z = i & 1;
-//             expr += " | (";
-//             expr += (X ? "X" : "~X"); expr += " & ";
-//             expr += (Y ? "Y" : "~Y"); expr += " & ";
-//             expr += (Z ? "Z" : "~Z"); expr += ")";
-//         }
-//         return expr;
-//     };
-
-//     // 5 inputs: X,Y,Z (original FA inputs) + S_a,C_a (approx outputs from previous cell)
-//     // 2 outputs: S_out, C_out (corrected exact outputs)
-//     file += "module " + revertName + "(X, Y, Z, S_a, C_a, S_out, C_out);\n";
-//     file += "input X, Y, Z;\n";
-//     file += "input S_a, C_a;\n";
-//     file += "output S_out, C_out;\n";
-//     file += "assign C_out = C_a ^ (" + buildSOP(1) + ") ;\n";
-//     file += "assign S_out = S_a ^ (" + buildSOP(0) + ") ;\n";
-//     file += "endmodule\n";
-
-// }
 
 //Sayak : Major Fix. XD --> Wasted 3 days
 //Wires requiring no corrections return a pure, clean "0".
@@ -114,11 +76,13 @@ void GenerateRevertModule(const string &revertName, const vector<int> &revertTT,
             mintermsExpr += (Z ? "Z" : "~Z"); mintermsExpr += ")";
             hasMinterms = true;
         }
+
+        // If no minterms were found, return "0" to indicate no correction needed
         return hasMinterms ? ("0" + mintermsExpr) : "0";
     };
 
-    // 5 inputs: X,Y,Z (original FA inputs) + S_a,C_a (approx outputs from previous cell)
-    // 2 outputs: S_out, C_out (corrected exact outputs)
+    // sayak: 5 inputs: X,Y,Z (original FA inputs) + S_a,C_a (approx outputs from previous cell)
+    // 2 outputs: S_out, C_out (corrected exact outputs) --> will be used in output ports
     file += "module " + revertName + "(X, Y, Z, S_a, C_a, S_out, C_out);\n";
     file += "input X, Y, Z;\n";
     file += "input S_a, C_a;\n";
@@ -128,7 +92,7 @@ void GenerateRevertModule(const string &revertName, const vector<int> &revertTT,
     file += "endmodule\n";
 }
 
-
+// Sayak: Generate all revert-cell modules stored in ApproxConfig
 void GenerateRevertModules(string &file)   // <-- i will dbug later <-- 03 : 09 : 2026
 {
     // Sayak: Get the map of module names to truth tables from ApproxConfig
@@ -433,12 +397,6 @@ map<int, string> generateWires(map<int, int> Ins, vector<int> signalIDs, vector<
     return signalMap;
 }
 
-// Helper: returns true when a signal-map name refers to an output port
-// (i.e. contains "Out" — covers "Out[k]", "Out1[k]", "Out2[k]").
-// static bool isOutputPort(const string &name)
-// {
-//     return name.find("Out") != string::npos;
-// }
 
 void GenerateComponents(map<int, string>& signalMap, vector<Component *>& compList, string &file)
 {
