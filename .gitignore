@@ -57,3 +57,6 @@ src/.DS_Store
 src/key
 src/key2
 src/version.hppgen
+build/
+.DS_Store
+**/.DS_Store
