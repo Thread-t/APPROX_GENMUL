@@ -10,12 +10,14 @@ int PartialProduct::count = 0;
 string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int thirdStage, int approxColumn, int approxCout, int approxSum, int approxMethod, bool debugMode) // Connect three stages to create a multiplier
 {
     assert(firstStage >= 1 && firstStage <= 2 && "The assigned number for the first stage should be 1 or 2!");
-    assert(secondStage >= 1 && secondStage <= 5 && "The assigned number for the second stage should be 1, 2, 3, 4, or 5!");
+    assert(secondStage >= 1 && secondStage <= 6 && "The assigned number for the second stage should be 1, 2, 3, 4, 5, or 6!");
     assert(thirdStage >= 1 && thirdStage <= 7 && "The assigned number for the third stage should be 1, 2, 3, 4, 5, 6, or 7!");
-    if (secondStage == 5)
+
+    const bool approxRequested = (secondStage == 5 || secondStage == 6) && approxColumn >= 0;
+    if (approxRequested)
     {
         assert(approxColumn >= 0 && approxColumn <= nIn1 + nIn2 - 2 &&
-               "Approximation column is outside the multiplier's Dadda columns");
+               "Approximation column is outside the multiplier's supported columns");
         assert(approxCout >= 0 && approxCout <= 255 && "Approximation carry mask must be 0 to 255");
         assert(approxSum >= 0 && approxSum <= 255 && "Approximation sum mask must be 0 to 255");
         assert(approxMethod >= 0 && approxMethod <= 3 && "Approximation method must be 0 to 3");
@@ -36,8 +38,9 @@ string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int 
     GenerateConstantOne(file);
     GenerateCounter(file);
 
-    // The approximate cell is used only by full adders in one selected Dadda column.
-    if (secondStage == 5)
+    // Approximate full-adder modules can be reused by the array PPA and the Dadda PPA.
+    // They are only configured when an approximation column is explicitly requested.
+    if (approxRequested)
     {
         ApproxConfig::configureApproxFA(approxColumn, approxCout, approxSum);
         GenerateApproxModules(file);
@@ -101,6 +104,10 @@ string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int 
         PPAInfo = ApproxDadda(PPGInfo, nIn1, nIn2, file, approxColumn, approxMethod, debugMode);
         secondStageName = "ADT";
         break;
+    case 6:
+        PPAInfo = ApproxArray(PPGInfo, nIn1, nIn2, file, sign, approxColumn, approxMethod, debugMode);
+        secondStageName = "AAR";
+        break;
     }
 
     //cout << "Partial Product accumulation: DONE" << endl;
@@ -113,7 +120,7 @@ string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int 
     case 1:
         //Sayak_i : pass the width of the first row to final adder
         nAdd = CreateRippleCarryAdder(PPAInfo[0] - PPAInfo[2], PPAInfo[1], file,
-                                      secondStage == 5 && (approxMethod == 2 || approxMethod == 3) ? approxColumn : -1,
+                                      (secondStage == 5 || secondStage == 6) && (approxMethod == 2 || approxMethod == 3) ? approxColumn : -1,
                                       debugMode);
         thirdStageName = "RC";
         break;
@@ -175,9 +182,9 @@ string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int 
 string nameMaker (int nIn1, int nIn2, int firstStage, int secondStage, int thirdStage, int approxColumn, int approxCout, int approxSum, int approxMethod, bool debugMode) //create name for the final Verilog file
 {
     assert(firstStage >= 1 && firstStage <= 2 && "The assigned number for the first stage should be 1 or 2!");
-    assert(secondStage >= 1 && secondStage <= 5 && "The assigned number for the second stage should be 1, 2, 3, 4, or 5!");
+    assert(secondStage >= 1 && secondStage <= 6 && "The assigned number for the second stage should be 1, 2, 3, 4, 5, or 6!");
     assert(thirdStage >= 1 && thirdStage <= 7 && "The assigned number for the third stage should be 1, 2, 3, 4, 5, 6, or 7!");
-    if (secondStage == 5)
+    if (secondStage == 5 || secondStage == 6)
     {
         assert(approxColumn >= 0 && approxColumn <= nIn1 + nIn2 - 2 &&
                "Approximation column is outside the multiplier's Dadda columns");
@@ -216,6 +223,9 @@ string nameMaker (int nIn1, int nIn2, int firstStage, int secondStage, int third
     case 5:
         secondStageName = "ADT";
         break;
+    case 6:
+        secondStageName = "AAR";
+        break;
     }
     /////////////////////////////////////////////////////
     switch (thirdStage)
@@ -243,7 +253,7 @@ string nameMaker (int nIn1, int nIn2, int firstStage, int secondStage, int third
         break;
     }
 
-    if (secondStage == 5)
+    if ((secondStage == 5 || secondStage == 6) && approxColumn >= 0)
         name = to_string(nIn1) + "_" + to_string(nIn2) + "_" + firstStageName + "_" + secondStageName + "_" + thirdStageName
              + "_M" + to_string(approxMethod)
              + "_COL" + to_string(approxColumn) + "_C" + to_string(approxCout)
