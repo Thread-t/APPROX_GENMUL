@@ -1,6 +1,6 @@
 #include "Array.hpp"
 
-vector<int> Array(map<int, int> Ins, int nIn1, int nIn2, string &file, bool sign) // Get two integer numbers as input sizes and create the Array PPA
+vector<int> Array(map<int, int> Ins, int nIn1, int nIn2, string &file, bool sign, int approxColumn, int approxMethod, bool debugMode) // Get two integer numbers as input sizes and create the Array PPA
 {
     int inputNumber = 0;
     vector<PartialProduct> partialIn; //to store all partial products
@@ -46,8 +46,6 @@ vector<int> Array(map<int, int> Ins, int nIn1, int nIn2, string &file, bool sign
 
     Component *comp; //a temp component to store a just created component
 
-    
-
     int currentWeight = 1;
 
     for (int i = 0; i < in2Size - 1; i++) //determining the number of rows
@@ -58,13 +56,19 @@ vector<int> Array(map<int, int> Ins, int nIn1, int nIn2, string &file, bool sign
         LevelizedPartials[currentWeight].insert(LevelizedPartials[currentWeight].begin(), comp->returnOutputs()[0]); //adding output of HA to the list of partial products
         LevelizedPartials[currentWeight + 1].insert(LevelizedPartials[currentWeight + 1].begin(), comp->returnOutputs()[1]);
         compList.push_back(comp);
+
         for (int j = 1; j < range; j++)
         {
-            comp = new FullAdder({LevelizedPartials[currentWeight + j][0], LevelizedPartials[currentWeight + j][1], LevelizedPartials[currentWeight + j][2]});
+            const int weight = currentWeight + j;
+            const bool useApproxFA = approxColumn >= 0 && weight <= approxColumn && !ApproxConfig::getModuleForWeight(weight).empty();
+            comp = new FullAdder({LevelizedPartials[currentWeight + j][0], LevelizedPartials[currentWeight + j][1], LevelizedPartials[currentWeight + j][2]}, useApproxFA, false, useApproxFA && debugMode);
             LevelizedPartials[currentWeight + j].erase(LevelizedPartials[currentWeight + j].begin(), LevelizedPartials[currentWeight + j].begin() + 3); //removing added partial products
             comp->SetOutputs();
-            LevelizedPartials[currentWeight + j].insert(LevelizedPartials[currentWeight + j].begin(), comp->returnOutputs()[0]); //adding output of FA to the list of partial products
-            LevelizedPartials[currentWeight + j + 1].insert(LevelizedPartials[currentWeight + j + 1].begin(), comp->returnOutputs()[1]);
+            //LevelizedPartials[currentWeight + j].insert(LevelizedPartials[currentWeight + j].begin(), comp->returnOutputs()[0]); //adding output of FA to the list of partial products
+            //LevelizedPartials[currentWeight + j + 1].insert(LevelizedPartials[currentWeight + j + 1].begin(), comp->returnOutputs()[1]);
+            LevelizedPartials[weight].insert(LevelizedPartials[weight].begin(), comp->returnOutputs()[0]); //adding output of FA to the list of partial products
+            LevelizedPartials[weight + 1].insert(LevelizedPartials[weight + 1].begin(), comp->returnOutputs()[1]);
+
             compList.push_back(comp);
         }
         currentWeight++;
