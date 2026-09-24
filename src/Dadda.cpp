@@ -81,7 +81,7 @@ static vector<int> DaddaCore(map<int, int> Ins, int nIn1, int nIn2, string &file
     }
 
     vector<PartialProduct> GeneratedAtLevel;  //all partial products generated a level of wallce tree computations
-    int stage = 1;
+
     for (auto n = 0u; n < D.size(); n++)
     {
         // Sayak: The following loop implements the Dadda reduction for each column of the partial product tree.
@@ -136,7 +136,6 @@ static vector<int> DaddaCore(map<int, int> Ins, int nIn1, int nIn2, string &file
                     //Sayak: Check wheather the module exist or not
                     const bool useApproxFA = approxThisColumn && !ApproxConfig::getModuleForWeight(i).empty();
 
-
                     // Sayak_i: this part is for controlling the height in case of a three input Full Adder
                     height[i] -= 2;
                     // Sayak_i : Carry creates a new bit in the next column
@@ -153,8 +152,6 @@ static vector<int> DaddaCore(map<int, int> Ins, int nIn1, int nIn2, string &file
         }
         PartialProduct::LevelizePartials(LevelizedPartials, GeneratedAtLevel);
         GeneratedAtLevel.clear();
-        //Sayak: Flag added to understand which Dadda stage i am 
-        stage++;
     }
 
     //Some of the input partial product needs to go directely to output, so we connect them with a = b assignment!

@@ -45,44 +45,35 @@ void GenerateApproxModules(string &file)
     }
 }
 
-
-//Sayak : Major Fix. XD --> Wasted 3 days
-//Wires requiring no corrections return a pure, clean "0".
-//Wires requiring corrections append the minterms strictly formatted as "0 | (...) | (...)" without any dangling operators or broken logic chunks.
+// Sayak: Generate revert-cell modules (one per distinct approx module).                 <-- I will dbug later <-- 03 : 09 : 2026) 
+// FVLIDAC DEBUG: the revert cell takes the original 3 inputs PLUS the approx
+// cell's outputs (S_a, C_a) and produces corrected exact outputs (S_out, C_out):
+//   S_out   = S_a   ^ error_S(X,Y,Z)    where error_S = exact_S XOR approx_S
+//   C_out   = C_a   ^ error_C(X,Y,Z)    where error_C = exact_C XOR approx_C
+// Placed immediately after each approx cell instantiation in the netlist, this
+// pair is together functionally equivalent to a single exact FullAdder.
 void GenerateRevertModule(const string &revertName, const vector<int> &revertTT, string &file)
 {
-    // Build SOP for each error bit with corrected indexing endianness
+    // Build SOP for each error bit (same helper as GenerateApproxModule)
     auto buildSOP = [&](int bitShift) -> string
     {
         string expr = "0";
-        bool hasMinterms = false;
-        string mintermsExpr = "";
-
         for (int i = 0; i < 8; ++i)
         {
             int val = (i < (int)revertTT.size()) ? (revertTT[i] & 3) : 0;
             if (((val >> bitShift) & 1) == 0)
                 continue;
-
-            // FIX: Mirror indexing configuration to match row decoder layout
-            // Row index 001 maps to variables X=0, Y=1, Z=0
-            int X = (i >> 2) & 1;
-            int Y = (i >> 1) & 1;
-            int Z =  i       & 1;
-
-            mintermsExpr += " | (";
-            mintermsExpr += (X ? "X" : "~X"); mintermsExpr += " & ";
-            mintermsExpr += (Y ? "Y" : "~Y"); mintermsExpr += " & ";
-            mintermsExpr += (Z ? "Z" : "~Z"); mintermsExpr += ")";
-            hasMinterms = true;
+            int X = (i >> 2) & 1, Y = (i >> 1) & 1, Z = i & 1;
+            expr += " | (";
+            expr += (X ? "X" : "~X"); expr += " & ";
+            expr += (Y ? "Y" : "~Y"); expr += " & ";
+            expr += (Z ? "Z" : "~Z"); expr += ")";
         }
-
-        // If no minterms were found, return "0" to indicate no correction needed
-        return hasMinterms ? ("0" + mintermsExpr) : "0";
+        return expr;
     };
 
-    // sayak: 5 inputs: X,Y,Z (original FA inputs) + S_a,C_a (approx outputs from previous cell)
-    // 2 outputs: S_out, C_out (corrected exact outputs) --> will be used in output ports
+    // 5 inputs: X,Y,Z (original FA inputs) + S_a,C_a (approx outputs from previous cell)
+    // 2 outputs: S_out, C_out (corrected exact outputs)
     file += "module " + revertName + "(X, Y, Z, S_a, C_a, S_out, C_out);\n";
     file += "input X, Y, Z;\n";
     file += "input S_a, C_a;\n";
@@ -90,9 +81,9 @@ void GenerateRevertModule(const string &revertName, const vector<int> &revertTT,
     file += "assign C_out = C_a ^ (" + buildSOP(1) + ") ;\n";
     file += "assign S_out = S_a ^ (" + buildSOP(0) + ") ;\n";
     file += "endmodule\n";
+
 }
 
-// Sayak: Generate all revert-cell modules stored in ApproxConfig
 void GenerateRevertModules(string &file)   // <-- i will dbug later <-- 03 : 09 : 2026
 {
     // Sayak: Get the map of module names to truth tables from ApproxConfig
@@ -397,12 +388,11 @@ map<int, string> generateWires(map<int, int> Ins, vector<int> signalIDs, vector<
     return signalMap;
 }
 
-
 void GenerateComponents(map<int, string>& signalMap, vector<Component *>& compList, string &file)
 {
-    // Declare the two private approximate-value wires for each debug-mode FA.
-    // Nothing else needs patching now: the corrected outputs already keep the
-    // golden signalMap names (w<N> or an output port), same as an exact FullAdder.
+    // Pre-pass A — emit wa* wire declarations only for the private
+    // approx→revert internal connections.
+
     int ComponentID = 0;
     for (auto &comp : compList)
     {
@@ -412,21 +402,23 @@ void GenerateComponents(map<int, string>& signalMap, vector<Component *>& compLi
             vector<string> wires = fa->debugWireNames(ComponentID);
             if (!wires.empty())
             {
-                file += "  wire " + wires[0] + ";\n";
-                file += "  wire " + wires[1] + ";\n";
+                file += "  wire " + wires[0] + ";\n";   // wa<ID>_s
+                file += "  wire " + wires[1] + ";\n";   // wa<ID>_c
             }
         }
         ComponentID++;
     }
 
-    // Instance pass — emit all components in order.
+    // Instance pass — emit all components.
+    // The debug-mode approx cell emits onto wa<ID>_s / wa<ID>_c, and the
+    // corresponding revert cell writes back to the original normal signals.
     string s;
-    string temp = "";
     ComponentID = 0;
+    string temp = "";
     for (auto &comp : compList)
     {
         s = comp->returnVerilogCode(signalMap, ComponentID);
-        temp += s + "\n";
+        temp = temp + s + "\n";
         ComponentID++;
     }
     file += temp + "\n";
@@ -568,6 +560,8 @@ string infoPrint (int firstInputLength, int secondInputLength, int firstStageID,
         case 4: secondStage = "Counter-based Wallace tree [CWT]";
             break;
         case 5: secondStage = "Approximate Dadda tree [ADT]";
+            break;
+        case 6: secondStage = "Approximate Array tree [AAR]";
             break;
     }
     switch (thirdStageID)

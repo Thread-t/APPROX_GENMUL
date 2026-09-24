@@ -64,10 +64,10 @@ void printUsage(const char *program)
     std::cerr
         << "Usage:\n"
         << "  " << program << " <ppg> <ppa> <fsa> <in1-bits> <in2-bits>\n"
-        << "  " << program << " <ppg> 5 <fsa> <in1-bits> <in2-bits>"
+        << "  " << program << " <ppg> <ppa> <fsa> <in1-bits> <in2-bits>"
         << " <dadda-column> <carry-mask> <sum-mask> [approx-method] [debug]\n\n"
         << "ppg: 1=unsigned, 2=signed\n"
-        << "ppa: 1=array, 2=Wallace, 3=Dadda, 4=counter-Wallace, 5=approximate Dadda\n"
+        << "ppa: 1=array, 2=Wallace, 3=Dadda, 4=counter-Wallace, 5=approximate Dadda, 6=approximate Array\n"
         << "fsa: 1=ripple-carry adder, 2=CLA, 3=Lander-Fischer, 4=Kogge-Stone,"
         << "5=Brent-Kung, 6=carry-skip, 7=serial-prefix\n"
         << "approx-method: 0=exact, 1=truncation only, 2=FA substitution only, 3=both\n"
@@ -103,8 +103,8 @@ int main(int argc, char **argv)
     int in1Size = 0;
     int in2Size = 0;
 
-    // Ignored unless PPA 5 (approximate Dadda) is selected.
-    int approxColumn = 0;
+    // Ignored unless an approximate PPA is selected.
+    int approxColumn = -1;
     int approxCout = 23;
     int approxSum = 105;
     int approxMethod = 2;
@@ -127,8 +127,9 @@ int main(int argc, char **argv)
                   << "2. Wallace tree\n"
                   << "3. Dadda tree\n"
                   << "4. Counter-based Wallace tree\n"
-                  << "5. Approximate Dadda tree\n";
-        if (!readValue(">> ", 1, 5, secondStage))
+                  << "5. Approximate Dadda tree\n"
+                  << "6. Approximate Array tree\n";
+        if (!readValue(">> ", 1, 6, secondStage))
             return 1;
 
         // Prompt the user for the FSA selection.
@@ -150,11 +151,11 @@ int main(int argc, char **argv)
             return 1;
         }
 
-        // If approximate Dadda is selected, prompt for additional parameters.
-        if (secondStage == 5)
+        // If an approximate Dadda or Approximate Array PPA is selected, prompt for additional parameters.
+        if (secondStage == 5 || secondStage == 6)
         {
             const int maximumColumn = in1Size + in2Size - 2;
-            std::cout << "\nThe selected Dadda column contains only approximate full adders; "
+            std::cout << "\nThe selected PPA column contains only approximate full adders; "
                       << "half adders are also full adders but passing zero as one input to behave like half adders\n";
 
             int debugInt = 0;
@@ -178,20 +179,8 @@ int main(int argc, char **argv)
     else
     {
         // Parse command line arguments.
-        // Valid argument counts:
-        //   6  : <ppg> <ppa> <fsa> <in1> <in2>                                    (non-approx)
-        //   9  : <ppg> 5    <fsa> <in1> <in2> <col> <cmask> <smask>               (approx, defaults)
-        //  10  : <ppg> 5    <fsa> <in1> <in2> <col> <cmask> <smask> <method>      (approx + method)
-        //  11  : <ppg> 5    <fsa> <in1> <in2> <col> <cmask> <smask> <method> <dbg>(approx + method + debug)
-        if (argc != 6 && argc != 9 && argc != 10 && argc != 11)
-        {
-            printUsage(argv[0]);
-            return 1;
-        }
-
-        // Parse command line arguments.
         if (!parseArgument(argv[1], "PPG", 1, 2, firstStage) ||
-            !parseArgument(argv[2], "PPA", 1, 5, secondStage) ||
+            !parseArgument(argv[2], "PPA", 1, 6, secondStage) ||
             !parseArgument(argv[3], "FSA", 1, 7, thirdStage) ||
             !parseArgument(argv[4], "first input size", 1, std::numeric_limits<int>::max(), in1Size) ||
             !parseArgument(argv[5], "second input size", 1, std::numeric_limits<int>::max(), in2Size))
@@ -199,21 +188,31 @@ int main(int argc, char **argv)
             return 1;
         }
 
-        // select approx Dadda
-        if (secondStage == 5)
+        // Sayak: Valid argument counts:
+        //   6  : <ppg> <ppa> <fsa> <in1> <in2>                                    (non-approx)
+        //   9  : <ppg> <ppa> <fsa> <in1> <in2> <col> <cmask> <smask>               (approx, defaults)
+        //  10  : <ppg> <ppa> <fsa> <in1> <in2> <col> <cmask> <smask> <method>      (approx + method)
+        //  11  : <ppg> <ppa> <fsa> <in1> <in2> <col> <cmask> <smask> <method> <dbg>(approx + method + debug)
+        const bool approxArgsAllowed = (secondStage == 5 || secondStage == 6);
+        if (argc != 6 && !(approxArgsAllowed && (argc == 9 || argc == 10 || argc == 11)))
         {
-            //check additional arguments for approximate Dadda
-            if (argc != 9 && argc != 10 && argc != 11)
+            printUsage(argv[0]);
+            return 1;
+        }
+
+        // Parse optional approximate-FA arguments for array and Dadda PPAs.
+        if (argc == 9 || argc == 10 || argc == 11)
+        {
+            if (secondStage != 5 && secondStage != 6)
             {
                 printUsage(argv[0]);
                 return 1;
             }
 
-            // Parse additional arguments if it is approximate Dadda.
             const int maximumColumn = in1Size + in2Size - 2;
 
-            // Parse the Dadda column, carry mask, and sum mask from command line arguments.
-            if (!parseArgument(argv[6], "Dadda column", 0, maximumColumn, approxColumn) ||
+            // Parse the Dadda/array column, carry mask, and sum mask from command line arguments.
+            if (!parseArgument(argv[6], "approximation column", 0, maximumColumn, approxColumn) ||
                 !parseArgument(argv[7], "carry mask", 0, 255, approxCout) ||
                 !parseArgument(argv[8], "sum mask", 0, 255, approxSum))
             {
@@ -233,12 +232,6 @@ int main(int argc, char **argv)
                     return 1;
                 debugMode = (debugInt == 1);
             }
-        }
-        // If it is not approximate Dadda, there should be no additional arguments.
-        else if (argc != 6)
-        {
-            printUsage(argv[0]);
-            return 1;
         }
     }
 

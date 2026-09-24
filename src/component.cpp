@@ -165,60 +165,35 @@ string FullAdder::returnVerilogCode(map<int, string>& signalMap, int ID)
         {
             // Sayak --> FVLIDAC DEBUG mode (IEEE 10506204):
             //
-            // The approx cell drives the NORMAL downstream wires (sOut, cOut) —
-            // identical port connections to non-debug mode.  This keeps the approx
-            // error visible in the netlist.
-            //
-            // The revert cell reads those same approx outputs back (as S_a, C_a)
-            // together with the original inputs X,Y,Z and produces the CORRECTED
-            // exact outputs on wa<ID>_s / wa<ID>_c.
-            //
-            // Wire declarations (wa*_s, wa*_c) are hoisted to the module top.
+            // The approximate cell drives private intermediate wires wa<ID>_s / wa<ID>_c.
+            // The revert cell reads those private wires and writes the corrected exact
+            // values back to the normal downstream wires (sOut, cOut), so later stages
+            // continue using the standard naming convention.
             string revertName = ApproxConfig::getRevertModuleForWeight(weight);
 
-            // Normal downstream wires — approx cell drives these (same as non-debug)
+            // Normal downstream wires used by later stages.
             const string &sOut = signalMap[this->outputs[0].returnNo()];
             const string &cOut = signalMap[this->outputs[1].returnNo()];
 
-            // // Private corrected wires — revert cell outputs these
-            // string waS = "wa" + to_string(ID) + "_s";
-            // string waC = "wa" + to_string(ID) + "_c";
-
-            // string out = "";
-            // // Approx FA: X,Y,Z → sOut, cOut  (normal wires, approx values)
-            // out += "  " + approxName + " U" + to_string(ID) + " ("
-            //     + signalMap[this->inputs[0].returnNo()] + ", "
-            //     + signalMap[this->inputs[1].returnNo()] + ", "
-            //     + thirdInput + ", "
-            //     + sOut + ", " + cOut + ");";
-            // out += "\n";
-            // // Revert cell: X,Y,Z, S_a=sOut, C_a=cOut → waS, waC  (exact corrected)
-            // out += "  " + revertName + " U" + to_string(ID) + "_r ("
-            //     + signalMap[this->inputs[0].returnNo()] + ", "
-            //     + signalMap[this->inputs[1].returnNo()] + ", "
-            //     + thirdInput + ", "
-            //     + sOut + ", " + cOut + ", "
-            //     + waS + ", " + waC + ");";
-
-            string axS = "wa" + to_string(ID) + "_ax_s";
-            string axC = "wa" + to_string(ID) + "_ax_c";
+            // Private intermediate wires between approx cell and revert cell.
+            string waS = "wa" + to_string(ID) + "_s";
+            string waC = "wa" + to_string(ID) + "_c";
 
             string out = "";
-            // Approx FA: X,Y,Z → axS, axC  (private wires, approximate values)
-            out += "  " + approxName + " U" + to_string(ID) + "_a ("
+            // Approx FA: X,Y,Z → waS, waC  (private internal approx outputs)
+            out += "  " + approxName + " U" + to_string(ID) + " ("
                 + signalMap[this->inputs[0].returnNo()] + ", "
                 + signalMap[this->inputs[1].returnNo()] + ", "
                 + thirdInput + ", "
-                + axS + ", " + axC + ");";
+                + waS + ", " + waC + ");";
             out += "\n";
-            // Revert cell: X,Y,Z, S_a=axS, C_a=axC → sOut, cOut  (exact corrected)
+            // Revert cell: X,Y,Z, S_a=waS, C_a=waC → normal exact outputs (sOut, cOut)
             out += "  " + revertName + " U" + to_string(ID) + "_r ("
                 + signalMap[this->inputs[0].returnNo()] + ", "
                 + signalMap[this->inputs[1].returnNo()] + ", "
                 + thirdInput + ", "
-                + axS + ", " + axC + ", "
+                + waS + ", " + waC + ", "
                 + sOut + ", " + cOut + ");";
-
             return out;
         }
 
@@ -254,8 +229,7 @@ vector<string> FullAdder::debugWireNames(int ID)
     int weight = this->inputs[0].returnWeight();
     if (ApproxConfig::getModuleForWeight(weight).empty())
         return {};
-    //return { "wa" + to_string(ID) + "_s", "wa" + to_string(ID) + "_c" };
-    return { "wa" + to_string(ID) + "_ax_s", "wa" + to_string(ID) + "_ax_c" };
+    return { "wa" + to_string(ID) + "_s", "wa" + to_string(ID) + "_c" };
 }
 
 string FullAdderProp::returnVerilogCode(map<int, string>& signalMap, int ID)

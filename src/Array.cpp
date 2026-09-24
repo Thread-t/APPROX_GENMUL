@@ -1,7 +1,16 @@
 #include "Array.hpp"
+#include "ApproxConfig.hpp"
 
-vector<int> Array(map<int, int> Ins, int nIn1, int nIn2, string &file, bool sign, int approxColumn, int approxMethod, bool debugMode) // Get two integer numbers as input sizes and create the Array PPA
+vector<int> ApproxArray(map<int, int> Ins, int nIn1, int nIn2, string &file, bool sign,
+                       int approxColumn, int approxMethod, bool debugMode)
 {
+    return Array(Ins, nIn1, nIn2, file, sign, approxColumn, approxMethod, debugMode);
+}
+
+vector<int> Array(map<int, int> Ins, int nIn1, int nIn2, string &file, bool sign,
+                 int approxColumn, int approxMethod, bool debugMode) // Get two integer numbers as input sizes and create the Array PPA
+{
+    const string ppaModuleName = (approxColumn >= 0) ? "AAR" : "AR";
     int inputNumber = 0;
     vector<PartialProduct> partialIn; //to store all partial products
     for (auto i = 0u; i < Ins.size(); i++)
@@ -46,6 +55,8 @@ vector<int> Array(map<int, int> Ins, int nIn1, int nIn2, string &file, bool sign
 
     Component *comp; //a temp component to store a just created component
 
+    
+
     int currentWeight = 1;
 
     for (int i = 0; i < in2Size - 1; i++) //determining the number of rows
@@ -56,19 +67,18 @@ vector<int> Array(map<int, int> Ins, int nIn1, int nIn2, string &file, bool sign
         LevelizedPartials[currentWeight].insert(LevelizedPartials[currentWeight].begin(), comp->returnOutputs()[0]); //adding output of HA to the list of partial products
         LevelizedPartials[currentWeight + 1].insert(LevelizedPartials[currentWeight + 1].begin(), comp->returnOutputs()[1]);
         compList.push_back(comp);
-
         for (int j = 1; j < range; j++)
         {
             const int weight = currentWeight + j;
-            const bool useApproxFA = approxColumn >= 0 && weight <= approxColumn && !ApproxConfig::getModuleForWeight(weight).empty();
-            comp = new FullAdder({LevelizedPartials[currentWeight + j][0], LevelizedPartials[currentWeight + j][1], LevelizedPartials[currentWeight + j][2]}, useApproxFA, false, useApproxFA && debugMode);
-            LevelizedPartials[currentWeight + j].erase(LevelizedPartials[currentWeight + j].begin(), LevelizedPartials[currentWeight + j].begin() + 3); //removing added partial products
+            const bool useApproxFA = approxColumn >= 0 && weight <= approxColumn &&
+                                     !ApproxConfig::getModuleForWeight(weight).empty();
+
+            comp = new FullAdder({LevelizedPartials[weight][0], LevelizedPartials[weight][1], LevelizedPartials[weight][2]},
+                                 useApproxFA, false, useApproxFA && debugMode);
+            LevelizedPartials[weight].erase(LevelizedPartials[weight].begin(), LevelizedPartials[weight].begin() + 3); //removing added partial products
             comp->SetOutputs();
-            //LevelizedPartials[currentWeight + j].insert(LevelizedPartials[currentWeight + j].begin(), comp->returnOutputs()[0]); //adding output of FA to the list of partial products
-            //LevelizedPartials[currentWeight + j + 1].insert(LevelizedPartials[currentWeight + j + 1].begin(), comp->returnOutputs()[1]);
             LevelizedPartials[weight].insert(LevelizedPartials[weight].begin(), comp->returnOutputs()[0]); //adding output of FA to the list of partial products
             LevelizedPartials[weight + 1].insert(LevelizedPartials[weight + 1].begin(), comp->returnOutputs()[1]);
-
             compList.push_back(comp);
         }
         currentWeight++;
@@ -128,7 +138,7 @@ vector<int> Array(map<int, int> Ins, int nIn1, int nIn2, string &file, bool sign
     /////////////////////
 
     //Generating the output verilog file
-    GenerateHeader(Ins.size(), "AR", file);
+    GenerateHeader(Ins.size(), ppaModuleName, file);
     GenereateInOutSig(Ins, nOut1, nOut2, file);
     vector<int> signalIDs = Component::collectIDs(compList); //all signals IDs
     map<int, string> wireHash = generateWires(Ins, signalIDs, OutPar1, OutPar2, file);
