@@ -21,6 +21,7 @@ static vector<int> WallaceCore(map<int, int> Ins, int nIn1, int nIn2, string &fi
         }
     }
 
+    //Sayak: Not sure it will work fine or not
     if (truncateBits > 0)
     {
         vector<PartialProduct> truncatedIn;
@@ -64,7 +65,18 @@ static vector<int> WallaceCore(map<int, int> Ins, int nIn1, int nIn2, string &fi
             }
             if (i.second.size() == 2)
             {
-                comp = new HalfAdder({i.second[0], i.second[1]});
+                //Sayak: If the weight is in the approximate column range and has an associated module, 
+                // use a FullAdder instead of a HalfAdder.
+                const bool useApproxHalfAsFA = approxColumn >= 0 && i.first <= approxColumn &&
+                                              !ApproxConfig::getModuleForWeight(i.first).empty();
+                if (approxColumn >= 0 && useApproxHalfAsFA)
+                {
+                    comp = new FullAdder({i.second[0], i.second[1]}, true, true, debugMode);
+                }
+                else
+                {
+                    comp = new HalfAdder({i.second[0], i.second[1]});
+                }
                 comp->SetOutputs();
                 i.second.erase(i.second.begin(), i.second.begin() + 2);
                 compList.push_back(comp);

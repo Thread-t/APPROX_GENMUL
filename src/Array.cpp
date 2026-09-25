@@ -61,7 +61,17 @@ vector<int> Array(map<int, int> Ins, int nIn1, int nIn2, string &file, bool sign
 
     for (int i = 0; i < in2Size - 1; i++) //determining the number of rows
     {
-        comp = new HalfAdder({LevelizedPartials[currentWeight][0], LevelizedPartials[currentWeight][1]});
+        const bool useApproxHalfAsFA = approxColumn >= 0 && currentWeight <= approxColumn &&
+                                      !ApproxConfig::getModuleForWeight(currentWeight).empty();
+        if (approxColumn >= 0 && useApproxHalfAsFA)
+        {
+            comp = new FullAdder({LevelizedPartials[currentWeight][0], LevelizedPartials[currentWeight][1]},
+                                 true, true, debugMode);
+        }
+        else
+        {
+            comp = new HalfAdder({LevelizedPartials[currentWeight][0], LevelizedPartials[currentWeight][1]});
+        }
         LevelizedPartials[currentWeight].erase(LevelizedPartials[currentWeight].begin(), LevelizedPartials[currentWeight].begin() + 2); //removing added partial products
         comp->SetOutputs();
         LevelizedPartials[currentWeight].insert(LevelizedPartials[currentWeight].begin(), comp->returnOutputs()[0]); //adding output of HA to the list of partial products
