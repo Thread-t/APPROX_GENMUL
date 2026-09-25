@@ -67,7 +67,7 @@ void printUsage(const char *program)
         << "  " << program << " <ppg> <ppa> <fsa> <in1-bits> <in2-bits>"
         << " <dadda-column> <carry-mask> <sum-mask> [approx-method] [debug]\n\n"
         << "ppg: 1=unsigned, 2=signed\n"
-        << "ppa: 1=array, 2=Wallace, 3=Dadda, 4=counter-Wallace, 5=approximate Dadda, 6=approximate Array\n"
+        << "ppa: 1=array, 2=Wallace, 3=Dadda, 4=counter-Wallace, 5=approximate Dadda, 6=approximate Array, 7=approximate Wallace\n"
         << "fsa: 1=ripple-carry adder, 2=CLA, 3=Lander-Fischer, 4=Kogge-Stone,"
         << "5=Brent-Kung, 6=carry-skip, 7=serial-prefix\n"
         << "approx-method: 0=exact, 1=truncation only, 2=FA substitution only, 3=both\n"
@@ -128,8 +128,9 @@ int main(int argc, char **argv)
                   << "3. Dadda tree\n"
                   << "4. Counter-based Wallace tree\n"
                   << "5. Approximate Dadda tree\n"
-                  << "6. Approximate Array tree\n";
-        if (!readValue(">> ", 1, 6, secondStage))
+                  << "6. Approximate Array tree\n"
+                  << "7. Approximate Wallace tree\n";
+        if (!readValue(">> ", 1, 7, secondStage))
             return 1;
 
         // Prompt the user for the FSA selection.
@@ -152,7 +153,7 @@ int main(int argc, char **argv)
         }
 
         // If an approximate Dadda or Approximate Array PPA is selected, prompt for additional parameters.
-        if (secondStage == 5 || secondStage == 6)
+        if (secondStage == 5 || secondStage == 6 || secondStage == 7)
         {
             const int maximumColumn = in1Size + in2Size - 2;
             std::cout << "\nThe selected PPA column contains only approximate full adders; "
@@ -180,7 +181,7 @@ int main(int argc, char **argv)
     {
         // Parse command line arguments.
         if (!parseArgument(argv[1], "PPG", 1, 2, firstStage) ||
-            !parseArgument(argv[2], "PPA", 1, 6, secondStage) ||
+            !parseArgument(argv[2], "PPA", 1, 7, secondStage) ||
             !parseArgument(argv[3], "FSA", 1, 7, thirdStage) ||
             !parseArgument(argv[4], "first input size", 1, std::numeric_limits<int>::max(), in1Size) ||
             !parseArgument(argv[5], "second input size", 1, std::numeric_limits<int>::max(), in2Size))
@@ -193,7 +194,7 @@ int main(int argc, char **argv)
         //   9  : <ppg> <ppa> <fsa> <in1> <in2> <col> <cmask> <smask>               (approx, defaults)
         //  10  : <ppg> <ppa> <fsa> <in1> <in2> <col> <cmask> <smask> <method>      (approx + method)
         //  11  : <ppg> <ppa> <fsa> <in1> <in2> <col> <cmask> <smask> <method> <dbg>(approx + method + debug)
-        const bool approxArgsAllowed = (secondStage == 5 || secondStage == 6);
+        const bool approxArgsAllowed = (secondStage == 5 || secondStage == 6 || secondStage == 7);
         if (argc != 6 && !(approxArgsAllowed && (argc == 9 || argc == 10 || argc == 11)))
         {
             printUsage(argv[0]);
@@ -203,7 +204,7 @@ int main(int argc, char **argv)
         // Parse optional approximate-FA arguments for array and Dadda PPAs.
         if (argc == 9 || argc == 10 || argc == 11)
         {
-            if (secondStage != 5 && secondStage != 6)
+            if (secondStage != 5 && secondStage != 6 && secondStage != 7)
             {
                 printUsage(argv[0]);
                 return 1;

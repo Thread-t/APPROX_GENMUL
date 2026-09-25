@@ -563,6 +563,8 @@ string infoPrint (int firstInputLength, int secondInputLength, int firstStageID,
             break;
         case 6: secondStage = "Approximate Array tree [AAR]";
             break;
+        case 7: secondStage = "Approximate Wallace tree [AWT]";
+            break;
     }
     switch (thirdStageID)
     {
