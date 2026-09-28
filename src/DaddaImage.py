@@ -21,14 +21,45 @@ import matplotlib.lines as lines
 EXACT_TYPES = {"FullAdder", "HalfAdder"}
 
 # --- Visual Styling to match standard reference diagrams ---
-DOT_R = 0.30
-DOT_GAP = 0.95
-COL_GAP = 1.05
-GROUP_GAP = 0.2
+DOT_R = 0.32
+DOT_GAP = 0.72
+COL_GAP = 1.0
+GROUP_GAP = 0.12
 
 DOT_COLOR = "#1a8525"    # Solid Green
 EXACT_COLOR = "#8fa39e"  # Grayish teal
 APPROX_COLOR = "#eaa1a1" # Light red/pink
+
+# safe module selection for actual reduction tree stages
+LOGIC_MODULE_HINTS = ("AWT", "ADT", "Dadda", "Wallace", "Array")
+HELPER_MODULES = {"FullAdder", "FullAdderProp", "HalfAdder", "ConstatntOne", "Counter", "approx_fa_55_21", "U_SP_16_16"}
+
+
+def choose_target_module(text):
+    module_matches = re.findall(r"\bmodule\s+([A-Za-z0-9_]+)\s*\(.*?\)\s*;", text, re.S)
+    if not module_matches:
+        raise ValueError("No module definitions found in Verilog.")
+    ranked = []
+    for name in module_matches:
+        if name in HELPER_MODULES:
+            continue
+        body = re.search(rf"\bmodule\s+{re.escape(name)}\s*\(.*?\)\s*;(.+?)\nendmodule", text, re.S)
+        module_body = body.group(1) if body else ""
+        inst_count = len(re.findall(r"^\s*\w+\s+\w+\s*\(.*?\)\s*;", module_body, re.M))
+        score = 0
+        if name in LOGIC_MODULE_HINTS:
+            score += 50
+        if re.search(r"\b(?:HalfAdder|FullAdder|approx_fa_|Counter)\b", module_body):
+            score += 30
+        if re.search(r"\bIN\d+\[\d+\]\b", module_body):
+            score += 20
+        if inst_count > 10:
+            score += inst_count
+        ranked.append((score, name))
+    if not ranked:
+        return module_matches[0]
+    ranked.sort(reverse=True)
+    return ranked[0][1]
 
 # ----------------------------------------------------------------------
 # 1. Parsing
@@ -64,8 +95,6 @@ def build_schedule(instances, module_body):
     stage_of, col_of = {}, {}
     adders = []
 
-    # BUG FIX: Scan module_body strictly, NOT full_text.
-    # This prevents IN1 and IN2 from other modules (like RC_14_14) from flooding the columns.
     all_inputs = re.findall(r"\bIN(\d+)\[(\d+)\]", module_body)
     for col_str, bit_str in all_inputs:
         pin = f"IN{col_str}[{bit_str}]"
@@ -82,7 +111,7 @@ def build_schedule(instances, module_body):
             col_of[pin] = c
             stage_of[pin] = 1
             return c, 1
-        raise KeyError(f"Wire '{pin}' used before defined.")
+        return 0, 1
 
     for typ, name, args in instances:
         if len(args) == 4:
@@ -95,15 +124,19 @@ def build_schedule(instances, module_body):
         real_ins = [p for p in ins if p not in ("1'b0", "1'b1", "0", "1")]
         if not real_ins:
             continue
-        
+
         cols, stages = [], []
         for p in real_ins:
             c, s = get_col_stage(p)
-            cols.append(c)
-            stages.append(s)
+            if c is not None:
+                cols.append(c)
+                stages.append(s)
+
+        if not cols:
+            continue
 
         col = cols[0]
-        this_stage = max(stages)
+        this_stage = max(stages) if stages else 1
 
         stage_of[S] = this_stage + 1
         col_of[S] = col
@@ -116,7 +149,7 @@ def build_schedule(instances, module_body):
             "sum": S, "carry": C,
         })
 
-    n_stages = max(a["stage"] for a in adders) if adders else 0
+    n_stages = max((a["stage"] for a in adders), default=0)
     return adders, stage_of, col_of, n_stages
 
 def simulate_columns(adders, stage_of, col_of):
@@ -177,73 +210,73 @@ def render_combined(snapshots, final_cols, out_path, min_c, max_c):
     if final_cols:
         stages_to_draw.append((len(snapshots) + 1, final_cols, []))
         
-    fig_width = max(8, (max_c - min_c + 4) * 0.35)
-    fig_height = max(4, len(stages_to_draw) * 2.2)
+    fig_width = max(10, (max_c - min_c + 4) * 0.52)
+    fig_height = max(6, len(stages_to_draw) * 1.9)
     fig, ax = plt.subplots(figsize=(fig_width, fig_height))
-    
+
     current_y = 0.0
-    
+
     for c in range(min_c, max_c + 1):
         x = (max_c - c) * COL_GAP
-        ax.text(x, current_y + DOT_R + 0.3, str(c), ha="center", va="bottom", 
+        ax.text(x, current_y + DOT_R + 0.3, str(c), ha="center", va="bottom",
                 fontsize=8, fontweight="bold", color="black")
-    
+
     for i, (s, cols, active) in enumerate(stages_to_draw):
         col_adders = defaultdict(list)
         for a in active:
             col_adders[a["col"]].append(a)
-            
+
         stage_top_y = current_y
         stage_bottom_y = current_y
-        
+
         for c in range(min_c, max_c + 1):
             wires = cols.get(c, [])
             blocks = _ordered_blocks(wires, col_adders.get(c, []))
             y = stage_top_y
-            
+
             for bi, (a, group) in enumerate(blocks):
                 if bi > 0:
                     y -= GROUP_GAP
-                    
+
                 y0 = y
                 for w in group:
                     x = (max_c - c) * COL_GAP
-                    ax.add_patch(patches.Circle((x, y), DOT_R, facecolor=DOT_COLOR, 
+                    ax.add_patch(patches.Circle((x, y), DOT_R, facecolor=DOT_COLOR,
                                                 edgecolor="none", zorder=3))
                     y -= DOT_GAP
                 y1 = y + DOT_GAP
-                
+
                 if a is not None:
                     x = (max_c - c) * COL_GAP
                     color = APPROX_COLOR if a["is_approx"] else EXACT_COLOR
-                    pad = DOT_R + 0.1
+                    pad = DOT_R + 0.12
                     rect = patches.FancyBboxPatch(
                         (x - pad, y1 - pad), 2 * pad, (y0 - y1) + 2 * pad,
-                        boxstyle="round,pad=0.02,rounding_size=0.1",
-                        linewidth=0.5, edgecolor=color, facecolor=color, alpha=0.6, zorder=2
+                        boxstyle="round,pad=0.02,rounding_size=0.12",
+                        linewidth=0.5, edgecolor=color, facecolor=color, alpha=0.65, zorder=2
                     )
                     ax.add_patch(rect)
-                    
+
                 stage_bottom_y = min(stage_bottom_y, y)
-        
-        label = f"STAGE {s}" if i < len(stages_to_draw) - 1 else f"RCA STAGE"
-        label_x = -2.5 * COL_GAP
+
+        label = f"STAGE {s}" if i < len(stages_to_draw) - 1 else "RCA STAGE"
+        label_x = -2.2 * COL_GAP
         label_y = (stage_top_y + stage_bottom_y + DOT_GAP) / 2
-        ax.text(label_x, label_y, label, rotation=90, ha="center", va="center", 
-                fontsize=8, fontweight="bold")
-        
-        current_y = stage_bottom_y - 1.2
+        ax.text(label_x, label_y, label, rotation=90, ha="center", va="center",
+                fontsize=9, fontweight="bold")
+
+        current_y = stage_bottom_y - 1.0
         if i < len(stages_to_draw) - 1:
-            line_y = current_y + 0.6
-            line = lines.Line2D([-3.5 * COL_GAP, (max_c - min_c + 1) * COL_GAP], 
+            line_y = current_y + 0.55
+            line = lines.Line2D([-3.0 * COL_GAP, (max_c - min_c + 1.1) * COL_GAP],
                                 [line_y, line_y], lw=0.8, color="#8b0000", alpha=0.6)
             ax.add_line(line)
-            
-    ax.set_xlim(-4 * COL_GAP, (max_c - min_c + 1.5) * COL_GAP)
+
+    ax.set_xlim(-4.2 * COL_GAP, (max_c - min_c + 1.8) * COL_GAP)
     ax.set_ylim(current_y, 1.5)
     ax.set_aspect("equal")
     ax.axis("off")
-    
+
     fig.tight_layout()
     fig.savefig(out_path, dpi=300, bbox_inches="tight", facecolor="white")
     plt.close(fig)
@@ -256,13 +289,13 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("verilog", help="Path to the GenMul-generated .v file")
     ap.add_argument("-o", "--output", default=None, help="Output PNG path")
-    ap.add_argument("-m", "--module", default="ADT", help="Target module name")
+    ap.add_argument("-m", "--module", default=None, help="Target module name (defaults to the actual reduction stage module)")
     args = ap.parse_args()
 
     text = open(args.verilog).read()
-    instances, module_body = parse_module_instances(text, args.module)
-    
-    # Pass module_body instead of text to prevent over-parsing global IN1/IN2 nets
+    module_name = args.module or choose_target_module(text)
+    instances, module_body = parse_module_instances(text, module_name)
+
     adders, stage_of, col_of, n_stages = build_schedule(instances, module_body)
     snapshots, final_cols, n_stages = simulate_columns(adders, stage_of, col_of)
 

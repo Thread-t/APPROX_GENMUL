@@ -12,14 +12,25 @@ echo $0: generate compilation time string and SHA256 message digest
 
 VERFILE="$1/"version.hppgen
 
-echo > $VERFILE
+printf "" > "$VERFILE"
 
 #TIME=`env TZ=Europe/Berlin date +"%a, %b %d %Y, %H:%M:%S"`
 TIME=`date +"%Y-%m-%d %H:%M:%S"`
 
 #sort files
 L=`ls "$1/"*.cpp "$1/"*.hpp | sort`
-S1=`sha256sum $L > "$1/"key`
+# choose a sha256 utility that's available on the system
+if command -v sha256sum >/dev/null 2>&1; then
+        SHA_CMD="sha256sum"
+elif command -v shasum >/dev/null 2>&1; then
+        SHA_CMD="shasum -a 256"
+else
+        echo "$0: Error: neither sha256sum nor shasum is available. Install coreutils or use shasum."
+        exit 1
+fi
+
+# compute per-file checksums and write to temporary key file
+${SHA_CMD} $L > "$1/key"
 
 
 file="$1/key"
@@ -42,7 +53,8 @@ done <"$file"
 
 
 
-S2=`sha256sum $fileout`
+# compute overall checksum of the aggregated (basename) list
+S2=`${SHA_CMD} "$fileout"`
 
 #S2=${S2%" key"}
 
@@ -50,23 +62,21 @@ S2=${S2%% *}
 
 #rm "$1/"key
 
-echo \#include\<string\> >> $VERFILE
+printf '#include<string>\n' >> "$VERFILE"
 
-echo '\n' >> $VERFILE
+printf '\n' >> "$VERFILE"
 
-echo const std::string GLOBAL_COMPILATION_TIME = \"$TIME\"\; >> $VERFILE
+printf 'const std::string GLOBAL_COMPILATION_TIME = "%s";\n' "$TIME" >> "$VERFILE"
 
-echo const std::string GLOBAL_SHA256 = \"$S2\"\; >> $VERFILE
+printf 'const std::string GLOBAL_SHA256 = "%s";\n' "$S2" >> "$VERFILE"
 
-#write detailed sha256 values
-
-echo -n 'const std::string GLOBAL_SHA256_DETAILED = "' >> $VERFILE
+# write detailed sha256 values in a portable way
+printf 'const std::string GLOBAL_SHA256_DETAILED = "' >> "$VERFILE"
 while IFS= read -r line
 do
-	#printf '%s\n' "$line"
-        echo -n $line'\\n' >>$VERFILE
-
+        # append each line followed by a literal "\n"
+        printf '%s\\n' "$line" >> "$VERFILE"
 done <"$fileout"
 
-echo '";' >>$VERFILE
+printf '";\n' >> "$VERFILE"
 

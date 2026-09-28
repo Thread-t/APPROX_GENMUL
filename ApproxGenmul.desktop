@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Approx GenMul
+Comment=Approximate multiplier generator and tree preview
+Exec=/home/sayak/.local/bin/approx-genmul
+Icon=/home/sayak/Documents/external/APPROX_GENMUL/genmul_icon.png
+Terminal=false
+Categories=Development;Science;
+StartupNotify=true
+Path=/home/sayak/Documents/external/APPROX_GENMUL
