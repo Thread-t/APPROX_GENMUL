@@ -161,6 +161,7 @@ static vector<int> WallaceCore(map<int, int> Ins, int nIn1, int nIn2, string &fi
     return {(int)OutPar1.size(), (int)OutPar2.size(), singleBitNumber}; //the first and second members are the size of out1 and out2, respectively, and the third output is the number pf single bits at the begining
 }
 
+//Sayak: Call the main Wallace tree function inside the Approx func
 vector<int> ApproxWallace(map<int, int> Ins, int nIn1, int nIn2, string &file,
                          int approxColumn, int approxMethod, bool debugMode)
 {

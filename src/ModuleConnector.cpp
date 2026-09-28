@@ -100,15 +100,15 @@ string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int 
         PPAInfo = Wallace5(PPGInfo, nIn1, nIn2, file);
         secondStageName = "CWT";
         break;
-    case 5:
+    case 5: //Sayak: added new case for Approximate Dadda tree
         PPAInfo = ApproxDadda(PPGInfo, nIn1, nIn2, file, approxColumn, approxMethod, debugMode);
         secondStageName = "ADT";
         break;
-    case 6:
+    case 6: //Sayak: added new case for Apprximate Array tree
         PPAInfo = ApproxArray(PPGInfo, nIn1, nIn2, file, sign, approxColumn, approxMethod, debugMode);
         secondStageName = "AAR";
         break;
-    case 7:
+    case 7: //Sayak: added new case for Approximate Wallace Tree
         PPAInfo = ApproxWallace(PPGInfo, nIn1, nIn2, file, approxColumn, approxMethod, debugMode);
         secondStageName = "AWT";
         break;
@@ -123,6 +123,7 @@ string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int 
     {
     case 1:
         //Sayak_i : pass the width of the first row to final adder
+        // Sayak: Added support of Approximate mode in RC Adder
         nAdd = CreateRippleCarryAdder(PPAInfo[0] - PPAInfo[2], PPAInfo[1], file,
                                       (secondStage == 5 || secondStage == 6 || secondStage == 7) && (approxMethod == 2 || approxMethod == 3) ? approxColumn : -1,
                                       debugMode);

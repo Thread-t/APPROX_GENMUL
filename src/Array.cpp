@@ -1,15 +1,12 @@
 #include "Array.hpp"
 #include "ApproxConfig.hpp"
 
-vector<int> ApproxArray(map<int, int> Ins, int nIn1, int nIn2, string &file, bool sign,
-                       int approxColumn, int approxMethod, bool debugMode)
+static vector<int> ArrayCore(map<int, int> Ins, int nIn1, int nIn2, string &file, bool sign,
+                int truncateBits, int approxColumn, int approxMethod ,  bool debugMode) // Get two integer numbers as input sizes and create the Array PPA
 {
-    return Array(Ins, nIn1, nIn2, file, sign, approxColumn, approxMethod, debugMode);
-}
-
-vector<int> Array(map<int, int> Ins, int nIn1, int nIn2, string &file, bool sign,
-                 int approxColumn, int approxMethod, bool debugMode) // Get two integer numbers as input sizes and create the Array PPA
-{
+    (void)approxMethod;
+    (void)approxColumn;
+    //Sayak: Decide if it is to be approximated
     const string ppaModuleName = (approxColumn >= 0) ? "AAR" : "AR";
     int inputNumber = 0;
     vector<PartialProduct> partialIn; //to store all partial products
@@ -23,6 +20,22 @@ vector<int> Array(map<int, int> Ins, int nIn1, int nIn2, string &file, bool sign
         }
     }
 
+    //Sayak: Not sure it will work fine or not
+    if (truncateBits > 0)
+    {
+        vector<PartialProduct> truncatedIn;
+        for (auto &p : partialIn)
+        {
+            if (p.returnWeight() < truncateBits)
+            {
+                continue;
+            }
+            p.ChangeWeight(p.returnWeight() - truncateBits);
+            truncatedIn.push_back(p);
+        }
+        partialIn = truncatedIn;
+    }
+
     vector<PartialProduct> partialOut; //the array of partial products for the output
     vector<Component *> compList;      //the array of used components during implementation
 
@@ -34,7 +47,7 @@ vector<int> Array(map<int, int> Ins, int nIn1, int nIn2, string &file, bool sign
         in2Size = nIn2;
         range = in1Size - 1;
     }
-    else //if multiplier is signed we have done a sign extention so the sizes are now equal
+    else //Sayak_i: if multiplier is signed we have done a sign extention so the sizes are now equal
     {
         if (nIn1>nIn2)
         {
@@ -54,8 +67,6 @@ vector<int> Array(map<int, int> Ins, int nIn1, int nIn2, string &file, bool sign
     PartialProduct::LevelizePartials(LevelizedPartials, partialIn); //adding the first input to the levelized hash
 
     Component *comp; //a temp component to store a just created component
-
-    
 
     int currentWeight = 1;
 
@@ -155,4 +166,34 @@ vector<int> Array(map<int, int> Ins, int nIn1, int nIn2, string &file, bool sign
     GenerateComponents(wireHash, compList, file);
     file += "endmodule\n";
     return {(int)OutPar1.size(), (int)OutPar2.size(), singleBitNumber}; //the first and second members are the size of out1 and out2, respectively, and the third output is the number pf single bits at the begining
+}
+
+
+//Sayak: Keep same like Approxdadda
+vector<int> ApproxArray(map<int, int> Ins, int nIn1, int nIn2, string &file, bool sign,
+                       int approxColumn, int approxMethod,  bool debugMode)
+{
+    assert(approxMethod >= 0 && approxMethod <= 3 && "Approximation method must be 0-3");
+    
+    int truncateBits = 0;
+    if (approxMethod == 1 || approxMethod == 3)
+    {
+        int maxWeight = 0;
+        for (auto const &it : Ins)
+        {
+            maxWeight = max(maxWeight, it.first);
+        }
+
+        if (maxWeight > 0)
+        {
+            truncateBits = max(1, min(maxWeight, min(nIn1, nIn2) / 4));
+        }
+    }
+    
+    return ArrayCore(Ins, nIn1, nIn2, file, sign, truncateBits, approxColumn, approxMethod, debugMode);
+}
+
+vector<int> Array(map<int, int> Ins, int nIn1, int nIn2, string &file, bool sign)
+{
+    return ArrayCore(Ins, nIn1, nIn2, file, sign, 0, -1, 0, false);
 }
