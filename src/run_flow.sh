@@ -130,15 +130,38 @@ fi
 
 # ------------------------------------------------------------------
 # Tunables (override from the environment):
-#   EQUIV_TIMEOUT       seconds allowed for the yosys equiv_simple heuristic (default 120)
+#   EQUIV_TIMEOUT       seconds allowed for the yosys equiv_simple heuristic.
+#                       Default is 120s for <=32-bit multipliers and 600s for
+#                       wider designs, since the miter grows quickly with width.
 #   ENABLE_SAT_FALLBACK set to 1 to also run the unbounded yosys SAT proof if
 #                       equiv_simple is inconclusive (default 0: off, because
 #                       SAT on a multiplier miter can run for a very long time)
-#   SAT_TIMEOUT         seconds allowed for that SAT proof (default 300)
+#   SAT_TIMEOUT         seconds allowed for that SAT proof. Default is 300s for
+#                       smaller sizes and 900s for wider operands.
 # ------------------------------------------------------------------
-EQUIV_TIMEOUT="${EQUIV_TIMEOUT:-120}"
+if [[ -z "${EQUIV_TIMEOUT:-}" ]]; then
+    if (( IN1 > 32 || IN2 > 32 )); then
+        EQUIV_TIMEOUT=600
+    else
+        EQUIV_TIMEOUT=120
+    fi
+else
+    EQUIV_TIMEOUT="$EQUIV_TIMEOUT"
+fi
+
 ENABLE_SAT_FALLBACK="${ENABLE_SAT_FALLBACK:-0}"
-SAT_TIMEOUT="${SAT_TIMEOUT:-300}"
+
+if [[ -z "${SAT_TIMEOUT:-}" ]]; then
+    if (( IN1 > 32 || IN2 > 32 )); then
+        SAT_TIMEOUT=900
+    else
+        SAT_TIMEOUT=300
+    fi
+else
+    SAT_TIMEOUT="$SAT_TIMEOUT"
+fi
+
+echo "Verification time budget: EQUIV_TIMEOUT=${EQUIV_TIMEOUT}s, SAT_TIMEOUT=${SAT_TIMEOUT}s (width=${IN1}x${IN2})"
 
 TIMEOUT=()
 if command -v timeout >/dev/null 2>&1; then

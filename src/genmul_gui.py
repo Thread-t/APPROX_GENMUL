@@ -106,6 +106,7 @@ FIELD_HELP = {
     'ppg': 'How partial products are generated from the two operands.',
     'ppa': 'Partial-product array / reduction scheme used to compress the rows.',
     'fsa': 'Final-stage adder that combines the fully reduced sum and carry rows.',
+    'width_preset': 'Quick width preset for common scalable targets: 8, 16, 32, and 64 bits.',
     'in1': 'Bit width of the first operand (multiplicand).',
     'in2': 'Bit width of the second operand (multiplier).',
     'col': 'Column index from which approximation starts being applied.',
@@ -323,14 +324,18 @@ class GenMulApp:
 
         core_frame = ttk.Labelframe(inner, text=' Multiplier Configuration ', style='Section.TLabelframe')
         core_frame.pack(fill='x', pady=(0, 12))
+        width_presets = [('Custom', 'custom'), ('8-bit', '8'), ('16-bit', '16'), ('32-bit', '32'), ('64-bit', '64')]
         core_fields = [
             ('PPG (Partial Product Gen.)', 'ppg', ttk.Combobox, PPG_OPTIONS, 'Unsigned'),
             ('PPA (Reduction Scheme)', 'ppa', ttk.Combobox, PPA_OPTIONS, 'Array'),
             ('FSA (Final Stage Adder)', 'fsa', ttk.Combobox, FSA_OPTIONS, 'Ripple Carry'),
+            ('Width preset', 'width_preset', ttk.Combobox, width_presets, 'Custom'),
             ('Input 1 bit width', 'in1', ttk.Entry, None, '8'),
             ('Input 2 bit width', 'in2', ttk.Entry, None, '8'),
         ]
         self._build_fields(core_frame, core_fields)
+
+        self.values['width_preset'].bind('<<ComboboxSelected>>', self._apply_width_preset)
 
         approx_frame = ttk.Labelframe(inner, text=' Approximation Parameters ', style='Section.TLabelframe')
         approx_frame.pack(fill='x', pady=(0, 12))
@@ -637,6 +642,20 @@ class GenMulApp:
         widget = self.values[key]
         selected_label = widget.get()
         return self.option_maps.get(key, {}).get(selected_label, selected_label)
+
+    def _apply_width_preset(self, event=None):
+        preset = self._combo_value('width_preset')
+        if preset == 'custom':
+            return
+        try:
+            width = int(preset)
+        except ValueError:
+            return
+
+        self.values['in1'].delete(0, 'end')
+        self.values['in1'].insert(0, str(width))
+        self.values['in2'].delete(0, 'end')
+        self.values['in2'].insert(0, str(width))
 
     def _update_approx_controls(self):
         try:
