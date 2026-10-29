@@ -126,7 +126,8 @@ string moduleConnector(int nIn1, int nIn2, int firstStage, int secondStage, int 
         // Sayak: Added support of Approximate mode in RC Adder
         nAdd = CreateRippleCarryAdder(PPAInfo[0] - PPAInfo[2], PPAInfo[1], file,
                                       (secondStage == 5 || secondStage == 6 || secondStage == 7) && (approxMethod == 2 || approxMethod == 3) ? approxColumn : -1,
-                                      debugMode);
+                                      debugMode,
+                                      PPAInfo[2]);
         thirdStageName = "RC";
         break;
     case 2:
